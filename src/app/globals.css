@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+:root {
+  /* 우드 베이지 테마 (기본값) */
+  --bg: #faf7f2;
+  --surface: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --text-primary: #2c2218;
+  --text-secondary: #8a7560;
+  --text-muted: #b8a898;
+  --accent: #c8965a;
+
+  /* 디자인 토큰 */
+  --radius-card: 12px;
+  --radius-sm: 8px;
+  --border-width: 0.5px;
+  --card-padding: 16px;
+  --card-gap: 12px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+}
+
+/* 파스텔 색상 팔레트 10종 */
+:root {
+  --color-coral: #ffb5a3;
+  --color-apricot: #ffcba4;
+  --color-lemon: #fff0a3;
+  --color-olive-mint: #c8e6c0;
+  --color-mint: #a8e6d9;
+  --color-sky: #a8d4f5;
+  --color-periwinkle: #b8b5f0;
+  --color-lavender: #d4b5f0;
+  --color-beige: #e8dcc8;
+  --color-gray: #d4d4d4;
+}
