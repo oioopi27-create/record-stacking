@@ -1,7 +1,12 @@
-export default function LoginPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <p className="text-[var(--text-secondary)]">로그인 화면 — 다음 단계에서 구현</p>
-    </div>
-  )
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import LoginForm from './LoginForm'
+
+export default async function LoginPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) redirect('/week')
+
+  return <LoginForm />
 }
