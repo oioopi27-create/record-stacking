@@ -363,7 +363,6 @@ export async function addExpense(formData: FormData): Promise<EntryResult> {
 
 export async function addPaymentMethod(
   name: string,
-  type: 'card' | 'account' | 'cash' | 'investment',
   color?: string,
 ): Promise<EntryResult & { id?: string }> {
   const supabase = await createClient()
@@ -373,7 +372,7 @@ export async function addPaymentMethod(
   const trimmed = name.trim()
   if (!trimmed) return { error: '지갑 이름을 입력해주세요' }
 
-  const payload: Record<string, unknown> = { user_id: user.id, name: trimmed, type }
+  const payload: Record<string, unknown> = { user_id: user.id, name: trimmed }
   if (color) payload.color = color
 
   let { data, error } = await supabase
@@ -382,10 +381,10 @@ export async function addPaymentMethod(
     .select('id')
     .single()
 
-  if (error && type === 'investment') {
+  if (error) {
     const fallback = await supabase
       .from('payment_method')
-      .insert({ ...payload, type: 'account' })
+      .insert({ user_id: user.id, name: trimmed })
       .select('id')
       .single()
     data = fallback.data

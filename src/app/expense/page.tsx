@@ -5,7 +5,7 @@ import HeaderBar from '@/components/HeaderBar'
 import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
 import HabitDateNav from '@/components/HabitDateNav'
-import { compactDate, weekOfMonthLabel } from '@/lib/date-labels'
+import { weekOfMonthLabel } from '@/lib/date-labels'
 
 type ProfilePrefs = { theme?: string | null; font?: string | null }
 
@@ -68,7 +68,7 @@ export default async function ExpensePage({
 
   let query = supabase
     .from('expense')
-    .select('id, title, amount, date, entry_type')
+    .select('id, title, amount, date, entry_type, category_id, payment_method_id')
     .eq('user_id', user.id)
     .gte('date', weekStartStr)
     .lte('date', weekEndStr)
@@ -76,7 +76,7 @@ export default async function ExpensePage({
     .order('created_at', { ascending: false })
   if (filterParam) query = query.eq('entry_type', filterParam)
 
-  const [{ data: expenses }, { data: allExpenses }] = await Promise.all([
+  const [{ data: expenses }, { data: allExpenses }, { data: expenseCats }, { data: payMethods }] = await Promise.all([
     query,
     supabase
       .from('expense')
@@ -84,12 +84,16 @@ export default async function ExpensePage({
       .eq('user_id', user.id)
       .gte('date', weekStartStr)
       .lte('date', weekEndStr),
+    supabase.from('expense_category').select('id, name, color').eq('user_id', user.id),
+    supabase.from('payment_method').select('id, name, color').eq('user_id', user.id),
   ])
 
   const allRows = (allExpenses ?? []) as { amount: number; entry_type?: 'income' | 'expense' | null }[]
   const incomeTotal = allRows.filter(row => row.entry_type === 'income').reduce((sum, row) => sum + row.amount, 0)
   const expenseTotal = allRows.filter(row => row.entry_type !== 'income').reduce((sum, row) => sum + row.amount, 0)
-  const walletRows = (expenses ?? []) as { id: string; title: string; amount: number; date: string; entry_type?: 'income' | 'expense' | null }[]
+  const walletRows = (expenses ?? []) as { id: string; title: string; amount: number; date: string; entry_type?: 'income' | 'expense' | null; category_id?: string | null; payment_method_id?: string | null }[]
+  const catMap = Object.fromEntries((expenseCats ?? []).map(c => [c.id, c as { id: string; name: string; color: string | null }]))
+  const methodMap = Object.fromEntries((payMethods ?? []).map(m => [m.id, m as { id: string; name: string; color: string | null }]))
 
   return (
     <BoardShell theme={theme} font={font} headerSlot={<HeaderBar userId={user.id} theme={theme} font={font} basePath="/expense" />}>
@@ -126,12 +130,33 @@ export default async function ExpensePage({
           </div>
           {walletRows.length > 0 ? (
             <ul className="board-v2-expense-list">
-              {walletRows.map(row => (
-                <li key={row.id} className={row.entry_type === 'income' ? 'is-income' : 'is-expense'}>
-                  <span><small>{compactDate(row.date)}</small>{row.title}</span>
-                  <strong>{row.entry_type === 'income' ? '+' : '-'}{row.amount.toLocaleString()}원</strong>
-                </li>
-              ))}
+              {walletRows.map(row => {
+                const cat = row.category_id ? catMap[row.category_id] : null
+                const method = row.payment_method_id ? methodMap[row.payment_method_id] : null
+                return (
+                  <li key={row.id} className={row.entry_type === 'income' ? 'is-income' : 'is-expense'}>
+                    <div className="board-v2-expense-li-main">
+                      <span>{row.title}</span>
+                      {(cat || method) && (
+                        <div className="board-v2-expense-li-chips">
+                          {cat && (
+                            <span
+                              className="board-v2-expense-li-chip"
+                              style={{ '--c': cat.color ?? 'var(--board-chip)' } as React.CSSProperties}
+                            >{cat.name}</span>
+                          )}
+                          {method && (
+                            <span className="board-v2-expense-li-chip board-v2-expense-li-chip-method"
+                              style={{ '--c': method.color ?? 'var(--board-chip)' } as React.CSSProperties}
+                            >{method.name}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <strong>{row.entry_type === 'income' ? '+' : '-'}{row.amount.toLocaleString()}원</strong>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <p className="board-v2-coming-soon">

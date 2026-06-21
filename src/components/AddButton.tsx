@@ -10,15 +10,7 @@ import TimePicker from '@/components/TimePicker'
 
 type FormType = '일정' | '습관' | '지출' | '메모' | '집중'
 type Category = { id: string; name: string; color?: string | null }
-type PaymentMethod = { id: string; name: string; type: 'card' | 'account' | 'cash' | 'investment' }
-type WalletType = PaymentMethod['type']
-
-const WALLET_TYPES: { value: WalletType; label: string }[] = [
-  { value: 'card', label: '카드' },
-  { value: 'account', label: '통장' },
-  { value: 'cash', label: '현금' },
-  { value: 'investment', label: '주식 계좌' },
-]
+type PaymentMethod = { id: string; name: string }
 
 function todayStr() {
   const d = new Date()
@@ -45,7 +37,6 @@ export default function AddButton({ type, label, defaultDate }: Props) {
   const [selPaymentMethod, setSelPaymentMethod] = useState('')
   const [addingMethod, setAddingMethod] = useState(false)
   const [newMethodName, setNewMethodName] = useState('')
-  const [newMethodType, setNewMethodType] = useState<WalletType>('card')
   const [methodPending, setMethodPending] = useState(false)
   const router = useRouter()
 
@@ -62,7 +53,7 @@ export default function AddButton({ type, label, defaultDate }: Props) {
     const sb = createClient()
     Promise.all([
       sb.from('expense_category').select('id, name').order('created_at'),
-      sb.from('payment_method').select('id, name, type').order('sort_order').order('created_at'),
+      sb.from('payment_method').select('id, name').order('sort_order').order('created_at'),
     ]).then(([catResult, methodResult]) => {
       setExpenseCategories(catResult.data ?? [])
       setPaymentMethods((methodResult.data ?? []) as PaymentMethod[])
@@ -109,9 +100,9 @@ export default function AddButton({ type, label, defaultDate }: Props) {
   async function handleAddPaymentMethod() {
     if (!newMethodName.trim()) return
     setMethodPending(true)
-    const res = await addPaymentMethod(newMethodName, newMethodType)
+    const res = await addPaymentMethod(newMethodName)
     if (!res.error && res.id) {
-      const created = { id: res.id, name: newMethodName.trim(), type: newMethodType }
+      const created = { id: res.id, name: newMethodName.trim() }
       setPaymentMethods(prev => [...prev, created])
       setSelPaymentMethod(created.id)
       setNewMethodName('')
@@ -152,8 +143,8 @@ export default function AddButton({ type, label, defaultDate }: Props) {
       </button>
 
       {open && (
-        <div className="board-v2-modal-overlay" onClick={closeModal}>
-          <div className="board-v2-modal" onClick={e => e.stopPropagation()}>
+        <div className="board-v2-modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
+          <div className="board-v2-modal">
             <div className="board-v2-modal-header">
               <span>{label}</span>
               <button type="button" onClick={closeModal} className="board-v2-modal-close">×</button>
@@ -245,18 +236,6 @@ export default function AddButton({ type, label, defaultDate }: Props) {
                   {addingMethod && (
                     <div className="board-v2-cat-new">
                       <input value={newMethodName} onChange={e => setNewMethodName(e.target.value)} placeholder="예: 국민카드, 토스통장" className="board-v2-modal-input" />
-                      <div className="board-v2-wallet-method-types">
-                        {WALLET_TYPES.map(item => (
-                          <button
-                            key={item.value}
-                            type="button"
-                            className={newMethodType === item.value ? 'is-active' : ''}
-                            onClick={() => setNewMethodType(item.value)}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
                       <button type="button" className="board-v2-modal-submit" disabled={methodPending || !newMethodName.trim()} onClick={handleAddPaymentMethod}>
                         {methodPending ? '…' : '지갑 수단 저장'}
                       </button>

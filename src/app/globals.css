@@ -991,6 +991,7 @@ input {
   width: 68px;
   height: 68px;
   border-radius: 50%;
+  overflow: hidden;
   position: relative;
   display: flex;
   align-items: center;
@@ -999,6 +1000,11 @@ input {
   color: var(--board-subtext);
   font-family: var(--font-display);
   font-weight: 700;
+}
+
+.board-v2-avatar.has-image::before,
+.board-v2-avatar.has-image::after {
+  display: none;
 }
 
 .board-v2-avatar::before {
@@ -2439,9 +2445,20 @@ input {
   font-family: var(--font-display), sans-serif;
 }
 
-.board-v2-record-choice:hover {
+.board-v2-record-choice:hover,
+.board-v2-record-choice:focus-visible {
   background: color-mix(in srgb, var(--board-accent) 14%, var(--board-card));
   border-color: var(--board-accent);
+}
+
+.board-v2-record-choice:active {
+  background: color-mix(in srgb, var(--board-accent) 22%, var(--board-card));
+  border-color: var(--board-accent);
+  transform: scale(0.97);
+}
+
+.board-v2-accent-star {
+  color: var(--board-accent);
 }
 
 .board-v2-record-choice-icon {
@@ -3341,7 +3358,10 @@ input {
   gap: 8px;
 }
 
-.board-v2-modal-row .board-v2-modal-input:first-child { flex: 1; }
+.board-v2-modal-row > .board-v2-modal-input {
+  flex: 1;
+  min-width: 0;
+}
 
 .board-v2-modal-time { width: 110px; flex-shrink: 0; }
 
@@ -4271,12 +4291,43 @@ input {
   font-weight: 600;
 }
 
-.board-v2-expense-list small {
-  display: inline-block;
-  min-width: 40px;
-  margin-right: 8px;
-  color: var(--board-muted);
+.board-v2-expense-li-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.board-v2-expense-li-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.board-v2-expense-li-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 10px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c, var(--board-chip)) 22%, var(--board-card));
+  color: var(--board-subtext);
+  white-space: nowrap;
+}
+
+.board-v2-expense-li-chip::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c, var(--board-chip));
+  flex-shrink: 0;
+}
+
+.board-v2-expense-li-chip-method::before {
+  display: none;
 }
 
 .board-v2-modal,

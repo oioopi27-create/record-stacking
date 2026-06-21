@@ -146,7 +146,6 @@ export default function ProfileCard({
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [newMethodName, setNewMethodName] = useState('')
-  const [newMethodType, setNewMethodType] = useState<WalletType>('card')
   const [newMethodColor, setNewMethodColor] = useState(CATEGORY_COLORS[0])
   const [methodPending, setMethodPending] = useState(false)
   const [methodError, setMethodError] = useState<string | null>(null)
@@ -311,7 +310,7 @@ export default function ProfileCard({
     if (!newMethodName.trim()) return
     setMethodPending(true)
     setMethodError(null)
-    const res = await addPaymentMethod(newMethodName, newMethodType, newMethodColor)
+    const res = await addPaymentMethod(newMethodName, newMethodColor)
     if (res.error) { setMethodError(res.error); setMethodPending(false); return }
     await reloadPaymentMethods()
     setNewMethodName('')
@@ -689,16 +688,6 @@ export default function ProfileCard({
                         placeholder="예: 국민카드, 토스통장"
                         maxLength={16}
                       />
-                      <div className="board-v2-method-type-row">
-                        {WALLET_TYPES.map(wt => (
-                          <button
-                            key={wt.value}
-                            type="button"
-                            className={`board-v2-method-type-btn${newMethodType === wt.value ? ' is-active' : ''}`}
-                            onClick={() => setNewMethodType(wt.value)}
-                          >{wt.label}</button>
-                        ))}
-                      </div>
                       <div className="board-v2-category-color-grid">
                         {CATEGORY_COLORS.map(c => (
                           <button
@@ -748,9 +737,6 @@ export default function ProfileCard({
                                 />
                               </label>
                               <strong>{method.name}</strong>
-                              <small className="board-v2-method-type-badge">
-                                {WALLET_TYPES.find(wt => wt.value === method.type)?.label ?? method.type}
-                              </small>
                             </div>
                             <button
                               type="button"

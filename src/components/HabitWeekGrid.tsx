@@ -114,7 +114,7 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
   if (habits.length === 0) {
     return (
       <>
-        <div className="board-v2-habit-section-title">★ 습관</div>
+        <div className="board-v2-habit-section-title"><span className="board-v2-accent-star">★</span> 습관</div>
         <p className="board-v2-coming-soon">+ 첫 번째 습관을 추가해 보세요</p>
       </>
     )
@@ -122,7 +122,7 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
 
   return (
     <>
-      <div className="board-v2-habit-section-title">★ 습관</div>
+      <div className="board-v2-habit-section-title"><span className="board-v2-accent-star">★</span> 습관</div>
       <div className="board-v2-habit-grid">
         <div className="board-v2-habit-grid-head">
           <div className="board-v2-habit-grid-label" />

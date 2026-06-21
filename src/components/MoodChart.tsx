@@ -26,7 +26,8 @@ const PL = 60, PR = 10, PT = 12, PB = 32
 const CW = W - PL - PR   // 278
 const CH = H - PT - PB   // 60
 
-const gx = (i: number) => PL + (i / 6) * CW
+const colW = CW / 7
+const gx = (i: number) => PL + (i + 0.5) * colW
 const gy = (mi: number) => PT + (mi / 3) * CH
 
 export default function MoodChart({ moods, weekDays }: Props) {
@@ -54,8 +55,6 @@ export default function MoodChart({ moods, weekDays }: Props) {
   }).filter(Boolean) as { x: number; y: number; date: string }[]
 
   const polyline = pts.map(p => `${p.x},${p.y}`).join(' ')
-  const colW = CW / 6
-
   return (
     <div className="board-v2-mood-wrap">
       <p className="board-v2-mood-title">

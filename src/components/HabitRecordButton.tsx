@@ -61,8 +61,8 @@ export default function HabitRecordButton({ todayKey }: { todayKey: string }) {
       </button>
 
       {open && (
-        <div className="board-v2-modal-overlay" onClick={close}>
-          <div className="board-v2-modal" onClick={e => e.stopPropagation()}>
+        <div className="board-v2-modal-overlay" onClick={e => { if (e.target === e.currentTarget) close() }}>
+          <div className="board-v2-modal">
             <div className="board-v2-modal-header">
               {mode !== 'select'
                 ? <button type="button" className="board-v2-modal-back-btn" onClick={back}>&lt;</button>
