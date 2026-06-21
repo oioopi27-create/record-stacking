@@ -6,16 +6,20 @@ import { createClient } from '@/lib/supabase/client'
 import {
   addCategory,
   addExpenseCategory,
+  addPaymentMethod,
   createCalendarGroup,
   deleteCategory,
   deleteExpenseCategory,
+  deletePaymentMethod,
   joinCalendarGroup,
+  resetUserRecords,
   updateAvatarUrl,
   updateBoardSettings,
   updateCategory,
   updateDiaryName,
   updateExpenseCategory,
   updateNickname,
+  updatePaymentMethodColor,
 } from '@/app/actions/entries'
 import { useCalendarStartDay } from '@/context/CalendarStartDayContext'
 import { boardHref, fonts, themes, type BoardFont, type BoardTheme } from '@/components/BoardShell'
@@ -24,6 +28,15 @@ type View = 'settings' | 'nickname' | 'theme' | 'category' | 'account' | 'shared
 type Group = { id: string; name: string; invite_code: string }
 type Member = { user_id: string; nickname: string | null }
 type Category = { id: string; name: string; color: string | null }
+type WalletType = 'card' | 'account' | 'cash' | 'investment'
+type PaymentMethod = { id: string; name: string; type: string; color: string | null }
+
+const WALLET_TYPES: { value: WalletType; label: string }[] = [
+  { value: 'card', label: '카드' },
+  { value: 'account', label: '통장' },
+  { value: 'cash', label: '현금' },
+  { value: 'investment', label: '주식 계좌' },
+]
 
 type Props = {
   nickname: string
@@ -124,12 +137,22 @@ export default function ProfileCard({
 
   const [categories, setCategories] = useState<Category[]>([])
   const [walletCategories, setWalletCategories] = useState<Category[]>([])
-  const [categoryMode, setCategoryMode] = useState<'schedule' | 'wallet'>('schedule')
+  const [categoryMode, setCategoryMode] = useState<'schedule' | 'wallet' | 'wallet-method'>('schedule')
   const [categoryName, setCategoryName] = useState('')
-  const [categoryColor, setCategoryColor] = useState(CATEGORY_COLORS[5])
+  const [categoryColor, setCategoryColor] = useState(CATEGORY_COLORS[0])
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryPending, setCategoryPending] = useState(false)
   const [categoryError, setCategoryError] = useState<string | null>(null)
+
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [newMethodName, setNewMethodName] = useState('')
+  const [newMethodType, setNewMethodType] = useState<WalletType>('card')
+  const [newMethodColor, setNewMethodColor] = useState(CATEGORY_COLORS[0])
+  const [methodPending, setMethodPending] = useState(false)
+  const [methodError, setMethodError] = useState<string | null>(null)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetPending, setResetPending] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const { setStartDay: setCtxStartDay } = useCalendarStartDay()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -152,12 +175,20 @@ export default function ProfileCard({
     setNameError(null)
     setGroupError(null)
     setSettingError(null)
+    setResetConfirmOpen(false)
+    setResetError(null)
   }
 
   useEffect(() => {
     if (view !== 'account' || email) return
     createClient().auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ''))
   }, [view, email])
+
+  useEffect(() => {
+    if (view !== 'category' || categoryMode !== 'wallet-method') return
+    reloadPaymentMethods()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, categoryMode])
 
   useEffect(() => {
     if (view !== 'category') return
@@ -244,9 +275,10 @@ export default function ProfileCard({
     setCategoryError(null)
   }
 
-  function switchCategoryMode(mode: 'schedule' | 'wallet') {
+  function switchCategoryMode(mode: 'schedule' | 'wallet' | 'wallet-method') {
     setCategoryMode(mode)
     resetCategoryForm()
+    setMethodError(null)
   }
 
   function startEditCategory(category: Category) {
@@ -257,12 +289,46 @@ export default function ProfileCard({
   }
 
   async function reloadCategories() {
+    if (categoryMode === 'wallet-method') return
     const supabase = createClient()
     const table = categoryMode === 'schedule' ? 'schedule_category' : 'expense_category'
     const result = await supabase.from(table).select('id, name, color').order('created_at')
     const rows = (result.data ?? []) as Category[]
     if (categoryMode === 'schedule') setCategories(rows)
     else setWalletCategories(rows)
+  }
+
+  async function reloadPaymentMethods() {
+    const { data } = await createClient()
+      .from('payment_method')
+      .select('id, name, type, color')
+      .order('sort_order')
+      .order('created_at')
+    setPaymentMethods((data ?? []) as PaymentMethod[])
+  }
+
+  async function handleAddPaymentMethod() {
+    if (!newMethodName.trim()) return
+    setMethodPending(true)
+    setMethodError(null)
+    const res = await addPaymentMethod(newMethodName, newMethodType, newMethodColor)
+    if (res.error) { setMethodError(res.error); setMethodPending(false); return }
+    await reloadPaymentMethods()
+    setNewMethodName('')
+    setNewMethodColor(CATEGORY_COLORS[0])
+    setMethodPending(false)
+  }
+
+  async function handleDeletePaymentMethod(id: string) {
+    setMethodPending(true)
+    const res = await deletePaymentMethod(id)
+    if (!res.error) setPaymentMethods(prev => prev.filter(m => m.id !== id))
+    setMethodPending(false)
+  }
+
+  async function handleUpdateMethodColor(id: string, color: string) {
+    setPaymentMethods(prev => prev.map(m => m.id === id ? { ...m, color } : m))
+    await updatePaymentMethodColor(id, color)
   }
 
   async function handleSaveCategory(e: React.FormEvent<HTMLFormElement>) {
@@ -331,6 +397,33 @@ export default function ProfileCard({
   async function handleLogout() {
     await createClient().auth.signOut()
     router.push('/login')
+  }
+
+  async function handleResetRecords() {
+    if (!resetConfirmOpen) {
+      setResetConfirmOpen(true)
+      setResetError(null)
+      return
+    }
+
+    setResetPending(true)
+    setResetError(null)
+    const result = await resetUserRecords()
+
+    if (result.error) {
+      setResetError(result.error)
+      setResetPending(false)
+      return
+    }
+
+    setResetPending(false)
+    setResetConfirmOpen(false)
+    router.refresh()
+  }
+
+  function cancelResetRecords() {
+    setResetConfirmOpen(false)
+    setResetError(null)
   }
 
   function copyCode(code: string) {
@@ -509,73 +602,170 @@ export default function ProfileCard({
               <div className="board-v2-profile-form">
                 <div className="board-v2-category-mode">
                   <button type="button" className={categoryMode === 'schedule' ? 'is-active' : ''} onClick={() => switchCategoryMode('schedule')}>
-                    일정 카테고리
+                    일정
                   </button>
                   <button type="button" className={categoryMode === 'wallet' ? 'is-active' : ''} onClick={() => switchCategoryMode('wallet')}>
-                    지갑 카테고리
+                    지갑
+                  </button>
+                  <button type="button" className={categoryMode === 'wallet-method' ? 'is-active' : ''} onClick={() => switchCategoryMode('wallet-method')}>
+                    지갑 수단
                   </button>
                 </div>
-                <form onSubmit={handleSaveCategory} className="board-v2-category-manager-form">
-                  <label className="board-v2-profile-field-label">{categoryMode === 'schedule' ? '일정 카테고리' : '지갑 카테고리'}</label>
-                  <input
-                    className="board-v2-profile-input"
-                    value={categoryName}
-                    onChange={e => setCategoryName(e.target.value)}
-                    placeholder="예: 공유 일정, 식비, 데이트"
-                    maxLength={16}
-                    required
-                  />
-                  <div className="board-v2-category-color-grid">
-                    {CATEGORY_COLORS.map(color => (
-                      <button
-                        key={color}
-                        type="button"
-                        className={categoryColor === color ? 'is-active' : ''}
-                        style={{ background: color }}
-                        onClick={() => setCategoryColor(color)}
-                        aria-label={`색상 ${color}`}
-                      />
-                    ))}
-                    <label
-                      className={`board-v2-cat-color-swatch-custom${!CATEGORY_COLORS.includes(categoryColor) ? ' is-active' : ''}`}
-                      style={{ background: !CATEGORY_COLORS.includes(categoryColor) ? categoryColor : 'transparent' }}
-                      title="직접 색상 선택"
-                    >
+
+                {categoryMode !== 'wallet-method' && (
+                  <>
+                    <form onSubmit={handleSaveCategory} className="board-v2-category-manager-form">
+                      <label className="board-v2-profile-field-label">{categoryMode === 'schedule' ? '일정 카테고리' : '지갑 카테고리'}</label>
                       <input
-                        type="color"
-                        className="board-v2-cat-color-picker-input"
-                        value={categoryColor}
-                        onChange={e => setCategoryColor(e.target.value)}
+                        className="board-v2-profile-input"
+                        value={categoryName}
+                        onChange={e => setCategoryName(e.target.value)}
+                        placeholder="예: 공유 일정, 식비, 데이트"
+                        maxLength={16}
+                        required
                       />
-                    </label>
-                  </div>
-                  {categoryError && <p className="board-v2-cal-error">{categoryError}</p>}
-                  <button type="submit" className="board-v2-profile-save-btn" disabled={categoryPending}>
-                    {categoryPending ? '저장 중' : editingCategoryId ? '수정 저장' : '카테고리 추가'}
-                  </button>
-                  {editingCategoryId && (
-                    <button type="button" className="board-v2-category-reset-btn" onClick={resetCategoryForm}>
-                      새 카테고리 입력
-                    </button>
-                  )}
-                </form>
-                <div className="board-v2-category-list">
-                  {activeCategories.length > 0 ? (
-                    activeCategories.map(category => (
-                      <div key={category.id} className="board-v2-category-item">
-                        <button type="button" onClick={() => startEditCategory(category)}>
-                          <span style={{ background: category.color ?? '#ffffff' }} />
-                          <strong>{category.name}</strong>
-                        </button>
-                        <button type="button" className="board-v2-category-delete" disabled={categoryPending} onClick={() => handleDeleteCategory(category.id)}>
-                          삭제
-                        </button>
+                      <div className="board-v2-category-color-grid">
+                        {CATEGORY_COLORS.map(color => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={categoryColor === color ? 'is-active' : ''}
+                            style={{ background: color }}
+                            onClick={() => setCategoryColor(color)}
+                            aria-label={`색상 ${color}`}
+                          />
+                        ))}
+                        <label
+                          className={`board-v2-cat-color-swatch-custom${!CATEGORY_COLORS.includes(categoryColor) ? ' is-active' : ''}`}
+                          style={{ background: !CATEGORY_COLORS.includes(categoryColor) ? categoryColor : 'transparent' }}
+                          title="직접 색상 선택"
+                        >
+                          <input
+                            type="color"
+                            className="board-v2-cat-color-picker-input"
+                            value={categoryColor}
+                            onChange={e => setCategoryColor(e.target.value)}
+                          />
+                        </label>
                       </div>
-                    ))
-                  ) : (
-                    <p className="board-v2-category-empty">아직 카테고리가 없어요.</p>
-                  )}
-                </div>
+                      {categoryError && <p className="board-v2-cal-error">{categoryError}</p>}
+                      <button type="submit" className="board-v2-profile-save-btn" disabled={categoryPending}>
+                        {categoryPending ? '저장 중' : editingCategoryId ? '수정 저장' : '카테고리 추가'}
+                      </button>
+                      {editingCategoryId && (
+                        <button type="button" className="board-v2-category-reset-btn" onClick={resetCategoryForm}>
+                          새 카테고리 입력
+                        </button>
+                      )}
+                    </form>
+                    <div className="board-v2-category-list">
+                      {activeCategories.length > 0 ? (
+                        activeCategories.map(category => (
+                          <div key={category.id} className="board-v2-category-item">
+                            <button type="button" onClick={() => startEditCategory(category)}>
+                              <span style={{ background: category.color ?? '#ffffff' }} />
+                              <strong>{category.name}</strong>
+                            </button>
+                            <button type="button" className="board-v2-category-delete" disabled={categoryPending} onClick={() => handleDeleteCategory(category.id)}>
+                              삭제
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="board-v2-category-empty">아직 카테고리가 없어요.</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {categoryMode === 'wallet-method' && (
+                  <>
+                    <div className="board-v2-category-manager-form">
+                      <label className="board-v2-profile-field-label">새 지갑 수단</label>
+                      <input
+                        className="board-v2-profile-input"
+                        value={newMethodName}
+                        onChange={e => setNewMethodName(e.target.value)}
+                        placeholder="예: 국민카드, 토스통장"
+                        maxLength={16}
+                      />
+                      <div className="board-v2-method-type-row">
+                        {WALLET_TYPES.map(wt => (
+                          <button
+                            key={wt.value}
+                            type="button"
+                            className={`board-v2-method-type-btn${newMethodType === wt.value ? ' is-active' : ''}`}
+                            onClick={() => setNewMethodType(wt.value)}
+                          >{wt.label}</button>
+                        ))}
+                      </div>
+                      <div className="board-v2-category-color-grid">
+                        {CATEGORY_COLORS.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            className={newMethodColor === c ? 'is-active' : ''}
+                            style={{ background: c }}
+                            onClick={() => setNewMethodColor(c)}
+                          />
+                        ))}
+                        <label
+                          className={`board-v2-cat-color-swatch-custom${!CATEGORY_COLORS.includes(newMethodColor) ? ' is-active' : ''}`}
+                          style={{ background: !CATEGORY_COLORS.includes(newMethodColor) ? newMethodColor : 'transparent' }}
+                          title="직접 색상 선택"
+                        >
+                          <input
+                            type="color"
+                            className="board-v2-cat-color-picker-input"
+                            value={newMethodColor}
+                            onChange={e => setNewMethodColor(e.target.value)}
+                          />
+                        </label>
+                      </div>
+                      {methodError && <p className="board-v2-cal-error">{methodError}</p>}
+                      <button
+                        type="button"
+                        className="board-v2-profile-save-btn"
+                        disabled={methodPending || !newMethodName.trim()}
+                        onClick={handleAddPaymentMethod}
+                      >{methodPending ? '저장 중' : '지갑 수단 추가'}</button>
+                    </div>
+                    <div className="board-v2-category-list">
+                      {paymentMethods.length > 0 ? (
+                        paymentMethods.map(method => (
+                          <div key={method.id} className="board-v2-category-item">
+                            <div className="board-v2-method-item-left">
+                              <label
+                                className="board-v2-method-color-dot"
+                                style={{ background: method.color ?? '#cccccc' }}
+                                title="색상 변경"
+                              >
+                                <input
+                                  type="color"
+                                  className="board-v2-cat-color-picker-input"
+                                  value={method.color ?? '#cccccc'}
+                                  onChange={e => handleUpdateMethodColor(method.id, e.target.value)}
+                                />
+                              </label>
+                              <strong>{method.name}</strong>
+                              <small className="board-v2-method-type-badge">
+                                {WALLET_TYPES.find(wt => wt.value === method.type)?.label ?? method.type}
+                              </small>
+                            </div>
+                            <button
+                              type="button"
+                              className="board-v2-category-delete"
+                              disabled={methodPending}
+                              onClick={() => handleDeletePaymentMethod(method.id)}
+                            >삭제</button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="board-v2-category-empty">아직 지갑 수단이 없어요.</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -583,12 +773,41 @@ export default function ProfileCard({
               <div className="board-v2-profile-form">
                 <label className="board-v2-profile-field-label">이메일</label>
                 <div className="board-v2-profile-email">{email || '-'}</div>
+
+                <div className="board-v2-reset-box">
+                  <strong>기록 초기화</strong>
+                  <p>계정과 설정은 유지하고 일정, 습관, 지갑, 메모 기록만 삭제해요.</p>
+                  {resetConfirmOpen && (
+                    <p className="board-v2-reset-warning">정말 초기화할까요? 이 작업은 되돌릴 수 없어요.</p>
+                  )}
+                  {resetError && <p className="board-v2-cal-error">{resetError}</p>}
+                  <div className="board-v2-reset-actions">
+                    <button
+                      type="button"
+                      className="board-v2-profile-logout-btn board-v2-reset-btn"
+                      disabled={resetPending}
+                      onClick={handleResetRecords}
+                    >
+                      {resetPending ? '초기화 중' : resetConfirmOpen ? '정말 초기화' : '기록 초기화'}
+                    </button>
+                    {resetConfirmOpen && (
+                      <button
+                        type="button"
+                        className="board-v2-cal-cancel"
+                        disabled={resetPending}
+                        onClick={cancelResetRecords}
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <button type="button" className="board-v2-profile-logout-btn" onClick={handleLogout}>
                   로그아웃
                 </button>
               </div>
             )}
-
             {view === 'shared' && (
               <div className="board-v2-profile-form">
                 {currentGroup ? (

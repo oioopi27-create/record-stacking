@@ -404,7 +404,7 @@ input {
 
 .board-v2-category-mode {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   border: 0.5px solid rgba(72, 80, 78, 0.12);
   border-radius: 999px;
@@ -516,6 +516,65 @@ input {
   color: var(--board-muted);
   font-size: 12px;
   text-align: center;
+}
+
+/* 지갑 수단 타입 선택 버튼 */
+.board-v2-method-type-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.board-v2-method-type-btn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(72, 80, 78, 0.18);
+  background: transparent;
+  color: var(--board-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-display), sans-serif;
+  transition: background 0.12s, color 0.12s;
+}
+
+.board-v2-method-type-btn.is-active {
+  background: var(--board-accent);
+  color: var(--board-on-accent);
+  border-color: var(--board-accent);
+}
+
+/* 지갑 수단 목록 아이템 */
+.board-v2-method-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.board-v2-method-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(72, 80, 78, 0.18);
+  position: relative;
+  overflow: visible;
+}
+
+.board-v2-method-type-badge {
+  font-size: 10px;
+  color: var(--board-muted);
+  background: var(--board-chip);
+  border-radius: 999px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* .board-v2-focus 정의는 아래 4000번대 블록 하나로 통합 */

@@ -4,6 +4,7 @@ import BoardShell, { resolveTheme, resolveFont } from '@/components/BoardShell'
 import HeaderBar from '@/components/HeaderBar'
 import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
+import HabitDateNav from '@/components/HabitDateNav'
 import { compactDate, weekOfMonthLabel } from '@/lib/date-labels'
 
 type ProfilePrefs = { theme?: string | null; font?: string | null }
@@ -56,6 +57,15 @@ export default async function ExpensePage({
     return toDateStr(d)
   }
 
+  function expenseBasePath() {
+    const q = new URLSearchParams()
+    if (theme !== 'white') q.set('theme', theme)
+    if (font !== 'gothic') q.set('font', font)
+    if (filterParam) q.set('filter', filterParam)
+    const s = q.toString()
+    return s ? `/expense?${s}` : '/expense'
+  }
+
   let query = supabase
     .from('expense')
     .select('id, title, amount, date, entry_type')
@@ -88,13 +98,15 @@ export default async function ExpensePage({
         <div className="board-v2-window-body">
           <div className="board-v2-window-heading-row">
             <a href={walletWeekHref({})} className="board-v2-tab-heading">지갑</a>
-            <AddButton type="지출" label="지갑 기록" defaultDate={selectedDate} />
+            <AddButton type="지출" label="기록" defaultDate={selectedDate} />
           </div>
-          <nav className="board-v2-week-arrow-nav" aria-label="지갑 주 이동">
-            <a href={walletWeekHref({ week: navDate(-7), filter: filterParam })} aria-label="지난 주">‹</a>
-            <span>{weekLabel}</span>
-            <a href={walletWeekHref({ week: navDate(7), filter: filterParam })} aria-label="다음 주">›</a>
-          </nav>
+          <HabitDateNav
+            weekLabel={weekLabel}
+            weekStart={weekStartStr}
+            prevHref={walletWeekHref({ week: navDate(-7), filter: filterParam })}
+            nextHref={walletWeekHref({ week: navDate(7), filter: filterParam })}
+            basePath={expenseBasePath()}
+          />
           <div className="board-v2-wallet-total">
             <a href={walletWeekHref({ week: params?.week, filter: null })} className={`board-v2-wallet-filter-btn${!filterParam ? ' is-active' : ''}`}>
               전체

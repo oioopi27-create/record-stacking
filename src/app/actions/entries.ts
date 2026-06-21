@@ -364,6 +364,7 @@ export async function addExpense(formData: FormData): Promise<EntryResult> {
 export async function addPaymentMethod(
   name: string,
   type: 'card' | 'account' | 'cash' | 'investment',
+  color?: string,
 ): Promise<EntryResult & { id?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -372,16 +373,19 @@ export async function addPaymentMethod(
   const trimmed = name.trim()
   if (!trimmed) return { error: '지갑 이름을 입력해주세요' }
 
+  const payload: Record<string, unknown> = { user_id: user.id, name: trimmed, type }
+  if (color) payload.color = color
+
   let { data, error } = await supabase
     .from('payment_method')
-    .insert({ user_id: user.id, name: trimmed, type })
+    .insert(payload)
     .select('id')
     .single()
 
   if (error && type === 'investment') {
     const fallback = await supabase
       .from('payment_method')
-      .insert({ user_id: user.id, name: trimmed, type: 'account' })
+      .insert({ ...payload, type: 'account' })
       .select('id')
       .single()
     data = fallback.data
@@ -392,6 +396,26 @@ export async function addPaymentMethod(
 
   revalidatePath('/expense')
   return { error: null, id: data?.id }
+}
+
+export async function deletePaymentMethod(id: string): Promise<EntryResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: '로그인이 필요합니다' }
+  const { error } = await supabase.from('payment_method').delete().eq('id', id).eq('user_id', user.id)
+  if (error) return { error: '삭제에 실패했습니다' }
+  revalidatePath('/expense')
+  return { error: null }
+}
+
+export async function updatePaymentMethodColor(id: string, color: string): Promise<EntryResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: '로그인이 필요합니다' }
+  const { error } = await supabase.from('payment_method').update({ color }).eq('id', id).eq('user_id', user.id)
+  if (error) return { error: '저장에 실패했습니다' }
+  revalidatePath('/expense')
+  return { error: null }
 }
 
 export async function addMemo(formData: FormData): Promise<EntryResult> {
@@ -622,6 +646,48 @@ export async function updateBoardSettings(
   if (error) return { error: error.message || '설정 저장에 실패했습니다' }
 
   revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+export async function resetUserRecords(): Promise<EntryResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const { data: habits, error: habitLookupError } = await supabase
+    .from('habit')
+    .select('id')
+    .eq('user_id', user.id)
+  if (habitLookupError) return { error: habitLookupError.message || '습관 조회에 실패했습니다.' }
+
+  const habitIds = (habits ?? []).map(habit => habit.id)
+  const deletions: PromiseLike<{ error: { message?: string } | null }>[] = []
+
+  if (habitIds.length > 0) {
+    deletions.push(
+      supabase.from('habit_check').delete().in('habit_id', habitIds),
+    )
+  }
+
+  deletions.push(
+    supabase.from('habit_review').delete().eq('user_id', user.id),
+    supabase.from('focus_item').delete().eq('user_id', user.id),
+    supabase.from('mood_check').delete().eq('user_id', user.id),
+    supabase.from('schedule').delete().eq('user_id', user.id),
+    supabase.from('expense').delete().eq('user_id', user.id),
+    supabase.from('memo_card').delete().eq('user_id', user.id),
+    supabase.from('habit').delete().eq('user_id', user.id),
+  )
+
+  const results = await Promise.all(deletions)
+  const failed = results.find(result => result.error)
+  if (failed?.error) return { error: failed.error.message || '기록 초기화에 실패했습니다.' }
+
+  revalidatePath('/week')
+  revalidatePath('/schedule')
+  revalidatePath('/habit')
+  revalidatePath('/expense')
+  revalidatePath('/memo')
   return { error: null }
 }
 
