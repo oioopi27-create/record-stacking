@@ -5832,17 +5832,7 @@ input {
   font-size: 15px;
 }
 
-.board-v2-month-jump > a,
-.board-v2-month-jump button {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
-.board-v2-month-jump > a:hover,
-.board-v2-month-jump button:hover {
-  background: color-mix(in srgb, var(--board-accent) 10%, transparent);
-}
+/* arrow styles unified at line 6232 */
 
 .board-v2-main-calendar-grid {
   gap: 10px 8px;
@@ -6569,6 +6559,7 @@ input {
 .board-v2-month-cal-title-group {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 

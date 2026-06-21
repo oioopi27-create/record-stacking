@@ -5,6 +5,7 @@ import HeaderBar from '@/components/HeaderBar'
 import MainCalendar, { type CalendarDayRecord } from '@/components/MainCalendar'
 import TodayMemoToggle from '@/components/TodayMemoToggle'
 import BottomNav from '@/components/BottomNav'
+import { fetchGroup } from '@/lib/group'
 
 type ProfilePrefs = {
   calendar_start_day?: number | null
@@ -44,6 +45,7 @@ export default async function WeekPage({
 
   const [
     { data: profile },
+    group,
     { count: scheduleCount },
     { data: todayExpenses },
     { data: monthSchedules },
@@ -53,6 +55,7 @@ export default async function WeekPage({
     { data: userHabits },
   ] = await Promise.all([
     supabase.from('users').select('calendar_start_day, theme, font, nickname, diary_name, avatar_url').eq('id', user.id).single(),
+    fetchGroup(supabase, user.id),
     supabase.from('schedule').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('date', todayStr),
     supabase.from('expense').select('amount, entry_type').eq('user_id', user.id).eq('date', todayStr),
     supabase.from('schedule').select('date, color, title').eq('user_id', user.id).gte('date', monthStart).lte('date', monthEnd),
@@ -155,6 +158,7 @@ export default async function WeekPage({
           diaryName={profilePrefs?.diary_name}
           avatarUrl={profilePrefs?.avatar_url}
           calendarStartDay={startDay}
+          group={group}
         />
       }
     >

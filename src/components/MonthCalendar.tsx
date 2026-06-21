@@ -30,6 +30,7 @@ type Props = {
   startDay?: 0 | 1
   initialSelectedDate?: string
   categoryFilter?: string
+  initialCategories?: Category[]
 }
 
 type CatPickerProps = {
@@ -128,6 +129,7 @@ export default function MonthCalendar({
   startDay = 1,
   initialSelectedDate,
   categoryFilter,
+  initialCategories,
 }: Props) {
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
@@ -138,7 +140,7 @@ export default function MonthCalendar({
   const [selectedDay, setSelectedDay] = useState<number | null>(
     initialSelectedDate ? parseInt(initialSelectedDate.slice(8, 10), 10) : null,
   )
-  const [categories, setCategories] = useState<Category[]>([])
+  const [categories, setCategories] = useState<Category[]>(initialCategories ?? [])
   const [addCatId, setAddCatId] = useState('')
   const [addColor, setAddColor] = useState(DEFAULT_COLOR)
   const [pending, setPending] = useState(false)
@@ -151,6 +153,7 @@ export default function MonthCalendar({
   const router = useRouter()
 
   useEffect(() => {
+    if (initialCategories !== undefined) return
     const supabase = createClient()
     supabase
       .from('schedule_category')
@@ -160,7 +163,7 @@ export default function MonthCalendar({
       .then(({ data }) => {
         setCategories((data ?? []) as Category[])
       })
-  }, [currentUserId])
+  }, [currentUserId, initialCategories])
 
   const isInitialMonth = year === initialYear && month === initialMonth
   const events = useMemo(() => {

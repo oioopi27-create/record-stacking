@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import BoardShell, { resolveTheme, resolveFont, boardHref } from '@/components/BoardShell'
 import HeaderBar from '@/components/HeaderBar'
+import { fetchGroup } from '@/lib/group'
 import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
 import MemoList from '@/components/MemoList'
@@ -27,8 +28,9 @@ export default async function MemoPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: memos }] = await Promise.all([
+  const [{ data: profile }, group, { data: memos }] = await Promise.all([
     supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single(),
+    fetchGroup(supabase, user.id),
     supabase
       .from('memo_card')
       .select('id, date, text')
@@ -51,6 +53,7 @@ export default async function MemoPage({
         diaryName={profilePrefs?.diary_name}
         avatarUrl={profilePrefs?.avatar_url}
         calendarStartDay={calendarStartDay}
+        group={group}
       />
     }>
       <div className="board-v2-main">

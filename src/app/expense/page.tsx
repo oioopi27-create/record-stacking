@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import BoardShell, { resolveTheme, resolveFont } from '@/components/BoardShell'
 import HeaderBar from '@/components/HeaderBar'
+import { fetchGroup } from '@/lib/group'
 import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
 import HabitDateNav from '@/components/HabitDateNav'
@@ -55,9 +56,11 @@ export default async function ExpensePage({
 
   const [
     { data: profile },
+    group,
     [{ data: expenses }, { data: allExpenses }, { data: expenseCats }, { data: payMethods }],
   ] = await Promise.all([
     supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single(),
+    fetchGroup(supabase, user.id),
     Promise.all([
       expenseQuery,
       supabase.from('expense').select('amount, entry_type').eq('user_id', user.id).gte('date', weekStartStr).lte('date', weekEndStr),
@@ -111,6 +114,7 @@ export default async function ExpensePage({
         diaryName={profilePrefs?.diary_name}
         avatarUrl={profilePrefs?.avatar_url}
         calendarStartDay={calendarStartDay}
+        group={group}
       />
     }>
       <div className="board-v2-main">

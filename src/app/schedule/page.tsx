@@ -7,6 +7,7 @@ import WeekDiaryView from '@/components/WeekDiaryView'
 import CategoryQuickAdd from '@/components/CategoryQuickAdd'
 import HeaderBar from '@/components/HeaderBar'
 import BottomNav from '@/components/BottomNav'
+import { fetchGroup } from '@/lib/group'
 
 type ProfilePrefs = {
   calendar_start_day?: number | null
@@ -41,16 +42,6 @@ export default async function SchedulePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
-    .eq('id', user.id)
-    .single()
-  const profilePrefs = profile as ProfilePrefs | null
-  const theme = resolveTheme(params, profilePrefs?.theme)
-  const font = resolveFont(params, profilePrefs?.font)
-  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
-
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
@@ -61,6 +52,36 @@ export default async function SchedulePage({
   const month = anchor.getMonth() + 1
   const monthStart = `${year}-${pad(month)}-01`
   const monthEnd = `${year}-${pad(month)}-${new Date(year, month, 0).getDate()}`
+
+  const dow = now.getDay()
+  const monday = new Date(now)
+  monday.setHours(0, 0, 0, 0)
+  monday.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow))
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const weekStart = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`
+  const weekEnd = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`
+
+  let scheduleQuery = view === 'month'
+    ? supabase.from('schedule').select('id, title, date, time, color, is_done, user_id, category_id').eq('user_id', user.id).gte('date', monthStart).lte('date', monthEnd).order('date')
+    : supabase.from('schedule').select('id, title, date, time, color, is_done, user_id, category_id').eq('user_id', user.id).gte('date', weekStart).lte('date', weekEnd).order('date')
+  if (catParam && view === 'month') scheduleQuery = scheduleQuery.eq('category_id', catParam)
+
+  const [{ data: profile }, group, { data: scheduleData }, { data: categories }] = await Promise.all([
+    supabase.from('users').select('calendar_start_day, theme, font, nickname, diary_name, avatar_url').eq('id', user.id).single(),
+    fetchGroup(supabase, user.id),
+    scheduleQuery,
+    supabase.from('schedule_category').select('id, name, color').eq('user_id', user.id).order('created_at'),
+  ])
+
+  const profilePrefs = profile as ProfilePrefs | null
+  const theme = resolveTheme(params, profilePrefs?.theme)
+  const font = resolveFont(params, profilePrefs?.font)
+  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
+
+  const monthSchedules: ScheduleRow[] = view === 'month' ? (scheduleData ?? []) as ScheduleRow[] : []
+  const weekSchedules: ScheduleRow[] = view === 'week' ? (scheduleData ?? []) as ScheduleRow[] : []
+  const cats = (categories ?? []) as { id: string; name: string; color: string }[]
 
   function schedHref(opts?: { date?: string; cat?: string | null; view?: string }) {
     const q = new URLSearchParams()
@@ -73,49 +94,6 @@ export default async function SchedulePage({
     return s ? `/schedule?${s}` : '/schedule'
   }
 
-  // 이번 달 일정 (month view)
-  let monthSchedules: ScheduleRow[] = []
-  if (view === 'month') {
-    let schedQ = supabase
-      .from('schedule')
-      .select('id, title, date, time, color, is_done, user_id, category_id')
-      .eq('user_id', user.id)
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
-      .order('date')
-    if (catParam) schedQ = schedQ.eq('category_id', catParam)
-    const { data } = await schedQ
-    monthSchedules = (data ?? []) as ScheduleRow[]
-  }
-
-  // 이번 주 일정 (week view) — 항상 월요일 기준
-  let weekSchedules: ScheduleRow[] = []
-  let weekStart = ''
-  if (view === 'week') {
-    const dow = now.getDay()
-    const monday = new Date(now)
-    monday.setHours(0, 0, 0, 0)
-    monday.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow))
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    weekStart = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`
-    const weekEnd = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`
-    const { data } = await supabase
-      .from('schedule')
-      .select('id, title, date, time, color, is_done, user_id, category_id')
-      .eq('user_id', user.id)
-      .gte('date', weekStart)
-      .lte('date', weekEnd)
-      .order('date')
-    weekSchedules = (data ?? []) as ScheduleRow[]
-  }
-
-  const [{ data: categories }] = await Promise.all([
-    supabase.from('schedule_category').select('id, name, color').eq('user_id', user.id).order('created_at'),
-  ])
-
-  const cats = (categories ?? []) as { id: string; name: string; color: string }[]
-
   return (
     <BoardShell theme={theme} font={font} headerSlot={
       <HeaderBar
@@ -124,6 +102,7 @@ export default async function SchedulePage({
         diaryName={profilePrefs?.diary_name}
         avatarUrl={profilePrefs?.avatar_url}
         calendarStartDay={startDay}
+        group={group}
       />
     }>
       <div className="board-v2-main">
@@ -178,6 +157,7 @@ export default async function SchedulePage({
                 startDay={startDay}
                 initialSelectedDate={selectedDate}
                 categoryFilter={catParam ?? undefined}
+                initialCategories={cats}
               />
             </>
           ) : (

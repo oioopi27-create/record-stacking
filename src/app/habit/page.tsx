@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import BoardShell, { boardHref, resolveFont, resolveTheme } from '@/components/BoardShell'
 import HeaderBar from '@/components/HeaderBar'
+import { fetchGroup } from '@/lib/group'
 import BottomNav from '@/components/BottomNav'
 import HabitMonthView from '@/components/HabitMonthView'
 import HabitWeekGrid from '@/components/HabitWeekGrid'
@@ -43,8 +44,9 @@ export default async function HabitPage({
   const month = anchor.getMonth() + 1
   const todayKey = now.toISOString().split('T')[0]
 
-  const [{ data: profile }, { data: habits }] = await Promise.all([
+  const [{ data: profile }, group, { data: habits }] = await Promise.all([
     supabase.from('users').select('calendar_start_day, theme, font, nickname, diary_name, avatar_url').eq('id', user.id).single(),
+    fetchGroup(supabase, user.id),
     supabase.from('habit').select('id, name').eq('user_id', user.id).order('created_at'),
   ])
 
@@ -67,6 +69,7 @@ export default async function HabitPage({
       diaryName={profilePrefs?.diary_name}
       avatarUrl={profilePrefs?.avatar_url}
       calendarStartDay={startDay}
+      group={group}
     />
   )
 

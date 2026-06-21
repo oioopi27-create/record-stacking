@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import ProfileCard from '@/components/ProfileCard'
 import { CalendarStartDayProvider } from '@/context/CalendarStartDayContext'
-import { createClient } from '@/lib/supabase/server'
 import type { BoardFont, BoardTheme } from '@/components/BoardShell'
+import type { GroupData } from '@/lib/group'
 
 type Props = {
   userId: string
@@ -13,43 +13,22 @@ type Props = {
   diaryName?: string | null
   avatarUrl?: string | null
   calendarStartDay?: 0 | 1
+  group?: GroupData
 }
 
-export default async function HeaderBar({
+export default function HeaderBar({
   userId, theme, font, basePath,
   nickname: nicknameProp,
   diaryName: diaryNameProp,
   avatarUrl: avatarUrlProp,
   calendarStartDay: calendarStartDayProp,
+  group = null,
 }: Props) {
-  const supabase = await createClient()
-  const { data: membership } = await supabase
-    .from('calendar_group_member')
-    .select('group_id, calendar_group(id, name, invite_code)')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle()
-
-  const groupRaw = (membership as { calendar_group?: { id: string; name: string; invite_code: string } | null } | null)?.calendar_group ?? null
-  const group = groupRaw ?? null
-  let members: { user_id: string; nickname: string | null }[] = []
-
-  if (group) {
-    const { data: memberRows } = await supabase
-      .from('calendar_group_member')
-      .select('user_id, users(nickname)')
-      .eq('group_id', group.id)
-      .neq('user_id', userId)
-    members = (memberRows ?? []).map(member => ({
-      user_id: member.user_id,
-      nickname: (member as { users?: { nickname?: string } | null }).users?.nickname ?? null,
-    }))
-  }
-
   const nickname = nicknameProp ?? '사용자'
   const diaryName = diaryNameProp ?? '기록 들이기'
   const avatarUrl = avatarUrlProp ?? null
   const calendarStartDay = calendarStartDayProp ?? 1
+  const members = group?.members ?? []
 
   return (
     <header className="board-v2-header">

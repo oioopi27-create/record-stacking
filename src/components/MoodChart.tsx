@@ -22,7 +22,7 @@ const MOOD_IDX: Record<MoodLevel, number> = { good: 0, calm: 1, tired: 2, sad: 3
 
 // Smaller SVG coordinate constants
 const W = 360, H = 104
-const PL = 60, PR = 0, PT = 12, PB = 32
+const PL = 60, PR = 6, PT = 12, PB = 32
 const CW = W - PL - PR   // 278
 const CH = H - PT - PB   // 60
 
