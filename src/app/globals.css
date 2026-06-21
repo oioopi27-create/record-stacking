@@ -2,7 +2,8 @@
 
 @font-face {
   font-family: "MemomentKkukkukk";
-  src: url("/font/MemomentKkukkukk.ttf") format("truetype");
+  src: url("/font/MemomentKkukkukk.woff2") format("woff2"),
+       url("/font/MemomentKkukkukk.ttf") format("truetype");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -10,7 +11,8 @@
 
 @font-face {
   font-family: "KyoboHandwriting2025lyb";
-  src: url("/font/KyoboHandwriting2025lyb.ttf") format("truetype");
+  src: url("/font/KyoboHandwriting2025lyb.woff2") format("woff2"),
+       url("/font/KyoboHandwriting2025lyb.ttf") format("truetype");
   font-display: swap;
 }
 
