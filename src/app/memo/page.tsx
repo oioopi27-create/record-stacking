@@ -6,7 +6,14 @@ import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
 import MemoList from '@/components/MemoList'
 
-type ProfilePrefs = { theme?: string | null; font?: string | null }
+type ProfilePrefs = {
+  theme?: string | null
+  font?: string | null
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
+  calendar_start_day?: number | null
+}
 
 export default async function MemoPage({
   searchParams,
@@ -21,7 +28,7 @@ export default async function MemoPage({
   if (!user) redirect('/login')
 
   const [{ data: profile }, { data: memos }] = await Promise.all([
-    supabase.from('users').select('theme, font').eq('id', user.id).single(),
+    supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single(),
     supabase
       .from('memo_card')
       .select('id, date, text')
@@ -34,9 +41,18 @@ export default async function MemoPage({
   const profilePrefs = profile as ProfilePrefs | null
   const theme = resolveTheme(params, profilePrefs?.theme)
   const font = resolveFont(params, profilePrefs?.font)
+  const calendarStartDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
 
   return (
-    <BoardShell theme={theme} font={font} headerSlot={<HeaderBar userId={user.id} theme={theme} font={font} basePath="/memo" />}>
+    <BoardShell theme={theme} font={font} headerSlot={
+      <HeaderBar
+        userId={user.id} theme={theme} font={font} basePath="/memo"
+        nickname={profilePrefs?.nickname}
+        diaryName={profilePrefs?.diary_name}
+        avatarUrl={profilePrefs?.avatar_url}
+        calendarStartDay={calendarStartDay}
+      />
+    }>
       <div className="board-v2-main">
       <section className="board-v2-window">
         <div className="board-v2-window-body">

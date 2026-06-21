@@ -19,6 +19,9 @@ type ProfilePrefs = {
   calendar_start_day?: number | null
   theme?: string | null
   font?: string | null
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
 }
 
 export default async function HabitPage({
@@ -35,7 +38,7 @@ export default async function HabitPage({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('calendar_start_day, theme, font')
+    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
     .eq('id', user.id)
     .single()
   const profilePrefs = profile as ProfilePrefs | null
@@ -63,7 +66,15 @@ export default async function HabitPage({
     return base.includes('?') ? `${base}&view=month` : `${base}?view=month`
   }
 
-  const headerBar = <HeaderBar userId={user.id} theme={theme} font={font} basePath="/habit" />
+  const headerBar = (
+    <HeaderBar
+      userId={user.id} theme={theme} font={font} basePath="/habit"
+      nickname={profilePrefs?.nickname}
+      diaryName={profilePrefs?.diary_name}
+      avatarUrl={profilePrefs?.avatar_url}
+      calendarStartDay={startDay}
+    />
+  )
 
   if (isMonth) {
     const daysInMonth = new Date(year, month, 0).getDate()

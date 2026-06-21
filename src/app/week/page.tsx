@@ -10,6 +10,9 @@ type ProfilePrefs = {
   calendar_start_day?: number | null
   theme?: string | null
   font?: string | null
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
 }
 
 function pad(value: number) {
@@ -32,7 +35,7 @@ export default async function WeekPage({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('calendar_start_day, theme, font')
+    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
     .eq('id', user.id)
     .single()
 
@@ -148,7 +151,15 @@ export default async function WeekPage({
     <BoardShell
       theme={theme}
       font={font}
-      headerSlot={<HeaderBar userId={user.id} theme={theme} font={font} basePath="/week" />}
+      headerSlot={
+        <HeaderBar
+          userId={user.id} theme={theme} font={font} basePath="/week"
+          nickname={profilePrefs?.nickname}
+          diaryName={profilePrefs?.diary_name}
+          avatarUrl={profilePrefs?.avatar_url}
+          calendarStartDay={startDay}
+        />
+      }
     >
       <div className="board-v2-main board-v2-main--home">
         <MainCalendar

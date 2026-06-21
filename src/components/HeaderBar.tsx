@@ -9,26 +9,26 @@ type Props = {
   theme: BoardTheme
   font: BoardFont
   basePath: string
-}
-
-type ProfileRow = {
   nickname?: string | null
-  diary_name?: string | null
-  avatar_url?: string | null
-  calendar_start_day?: number | null
+  diaryName?: string | null
+  avatarUrl?: string | null
+  calendarStartDay?: 0 | 1
 }
 
-export default async function HeaderBar({ userId, theme, font, basePath }: Props) {
+export default async function HeaderBar({
+  userId, theme, font, basePath,
+  nickname: nicknameProp,
+  diaryName: diaryNameProp,
+  avatarUrl: avatarUrlProp,
+  calendarStartDay: calendarStartDayProp,
+}: Props) {
   const supabase = await createClient()
-  const [{ data: profile }, { data: membership }] = await Promise.all([
-    supabase.from('users').select('nickname, diary_name, avatar_url, calendar_start_day').eq('id', userId).single(),
-    supabase
-      .from('calendar_group_member')
-      .select('group_id, calendar_group(id, name, invite_code)')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle(),
-  ])
+  const { data: membership } = await supabase
+    .from('calendar_group_member')
+    .select('group_id, calendar_group(id, name, invite_code)')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle()
 
   const groupRaw = (membership as { calendar_group?: { id: string; name: string; invite_code: string } | null } | null)?.calendar_group ?? null
   const group = groupRaw ?? null
@@ -46,11 +46,10 @@ export default async function HeaderBar({ userId, theme, font, basePath }: Props
     }))
   }
 
-  const profileRow = profile as ProfileRow | null
-  const nickname = profileRow?.nickname ?? '사용자'
-  const diaryName = profileRow?.diary_name ?? '기록 들이기'
-  const avatarUrl = profileRow?.avatar_url ?? null
-  const calendarStartDay = ((profileRow?.calendar_start_day ?? 1) as 0 | 1)
+  const nickname = nicknameProp ?? '사용자'
+  const diaryName = diaryNameProp ?? '기록 들이기'
+  const avatarUrl = avatarUrlProp ?? null
+  const calendarStartDay = calendarStartDayProp ?? 1
 
   return (
     <header className="board-v2-header">

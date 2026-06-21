@@ -318,7 +318,7 @@ input {
 }
 
 .board-v2-diary-name-static {
-  margin-top: -2px;
+  margin-top: -6px;
   line-height: 1.2;
 }
 
@@ -6987,8 +6987,10 @@ input {
 .board-v2-month-cal-day-row {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 2px;
   flex-shrink: 0;
+  width: 100%;
   min-width: 0;
 }
 
@@ -7009,27 +7011,26 @@ input {
 /* ── Nav arrow button — MonthCalendar ───────────────────── */
 
 .board-v2-month-cal-arrow {
-  border: 1.5px solid color-mix(in srgb, var(--board-accent) 60%, rgba(72, 80, 78, 0.25)) !important;
-  background: color-mix(in srgb, var(--board-accent) 18%, var(--board-card)) !important;
-  color: var(--board-subtext) !important;
-  font-size: 20px;
-  font-weight: 700;
-  width: 34px;
-  height: 34px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid color-mix(in srgb, var(--board-accent) 60%, rgba(72, 80, 78, 0.25));
   border-radius: 50%;
+  background: color-mix(in srgb, var(--board-accent) 18%, var(--board-card));
+  color: var(--board-subtext);
+  font-size: 20px;
+  font-weight: 700;
   line-height: 1;
-  font-family: monospace;
+  cursor: pointer;
+  padding: 0;
   transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
 .board-v2-month-cal-arrow:hover {
-  background: var(--board-accent) !important;
-  color: var(--board-on-accent) !important;
+  background: var(--board-accent);
+  color: var(--board-on-accent);
   transform: translateY(-1px);
 }
 

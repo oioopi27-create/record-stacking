@@ -7,7 +7,14 @@ import AddButton from '@/components/AddButton'
 import HabitDateNav from '@/components/HabitDateNav'
 import { weekOfMonthLabel } from '@/lib/date-labels'
 
-type ProfilePrefs = { theme?: string | null; font?: string | null }
+type ProfilePrefs = {
+  theme?: string | null
+  font?: string | null
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
+  calendar_start_day?: number | null
+}
 
 export default async function ExpensePage({
   searchParams,
@@ -21,10 +28,11 @@ export default async function ExpensePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('theme, font').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single()
   const profilePrefs = profile as ProfilePrefs | null
   const theme = resolveTheme(params, profilePrefs?.theme)
   const font = resolveFont(params, profilePrefs?.font)
+  const calendarStartDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
 
   const now = new Date()
   const selectedDate = params?.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined
@@ -96,7 +104,15 @@ export default async function ExpensePage({
   const methodMap = Object.fromEntries((payMethods ?? []).map(m => [m.id, m as { id: string; name: string; color: string | null }]))
 
   return (
-    <BoardShell theme={theme} font={font} headerSlot={<HeaderBar userId={user.id} theme={theme} font={font} basePath="/expense" />}>
+    <BoardShell theme={theme} font={font} headerSlot={
+      <HeaderBar
+        userId={user.id} theme={theme} font={font} basePath="/expense"
+        nickname={profilePrefs?.nickname}
+        diaryName={profilePrefs?.diary_name}
+        avatarUrl={profilePrefs?.avatar_url}
+        calendarStartDay={calendarStartDay}
+      />
+    }>
       <div className="board-v2-main">
       <section className="board-v2-window">
         <div className="board-v2-window-body">

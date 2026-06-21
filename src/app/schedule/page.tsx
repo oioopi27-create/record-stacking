@@ -12,6 +12,9 @@ type ProfilePrefs = {
   calendar_start_day?: number | null
   theme?: string | null
   font?: string | null
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
 }
 
 type ScheduleRow = {
@@ -40,7 +43,7 @@ export default async function SchedulePage({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('calendar_start_day, theme, font')
+    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
     .eq('id', user.id)
     .single()
   const profilePrefs = profile as ProfilePrefs | null
@@ -114,7 +117,15 @@ export default async function SchedulePage({
   const cats = (categories ?? []) as { id: string; name: string; color: string }[]
 
   return (
-    <BoardShell theme={theme} font={font} headerSlot={<HeaderBar userId={user.id} theme={theme} font={font} basePath="/schedule" />}>
+    <BoardShell theme={theme} font={font} headerSlot={
+      <HeaderBar
+        userId={user.id} theme={theme} font={font} basePath="/schedule"
+        nickname={profilePrefs?.nickname}
+        diaryName={profilePrefs?.diary_name}
+        avatarUrl={profilePrefs?.avatar_url}
+        calendarStartDay={startDay}
+      />
+    }>
       <div className="board-v2-main">
       <section className="board-v2-window">
         <div className="board-v2-window-body">
