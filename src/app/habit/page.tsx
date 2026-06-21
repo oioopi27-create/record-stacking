@@ -36,16 +36,6 @@ export default async function HabitPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
-    .eq('id', user.id)
-    .single()
-  const profilePrefs = profile as ProfilePrefs | null
-  const theme = resolveTheme(params, profilePrefs?.theme)
-  const font = resolveFont(params, profilePrefs?.font)
-  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
-
   const now = new Date()
   const requested = params?.week ? new Date(`${params.week}T00:00:00`) : null
   const anchor = requested && !Number.isNaN(requested.getTime()) ? requested : now
@@ -53,11 +43,15 @@ export default async function HabitPage({
   const month = anchor.getMonth() + 1
   const todayKey = now.toISOString().split('T')[0]
 
-  const { data: habits } = await supabase
-    .from('habit')
-    .select('id, name')
-    .eq('user_id', user.id)
-    .order('created_at')
+  const [{ data: profile }, { data: habits }] = await Promise.all([
+    supabase.from('users').select('calendar_start_day, theme, font, nickname, diary_name, avatar_url').eq('id', user.id).single(),
+    supabase.from('habit').select('id, name').eq('user_id', user.id).order('created_at'),
+  ])
+
+  const profilePrefs = profile as ProfilePrefs | null
+  const theme = resolveTheme(params, profilePrefs?.theme)
+  const font = resolveFont(params, profilePrefs?.font)
+  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
   const habitIds = habits?.map(habit => habit.id) ?? []
 
   function habitViewHref(view: 'week' | 'month') {

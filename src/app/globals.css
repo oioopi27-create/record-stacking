@@ -2371,6 +2371,7 @@ input {
   border: 0.5px solid rgba(72, 80, 78, 0.18);
   border-radius: 16px;
   padding: 24px;
+  overflow-x: hidden;
   width: 320px;
   max-width: calc(100vw - 32px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
@@ -6229,20 +6230,28 @@ input {
 }
 
 .board-v2-month-jump > a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 34px;
-  min-height: 34px;
-  border: 0 !important;
-  background: transparent !important;
-  color: var(--board-accent) !important;
-  font-size: 26px;
-  font-weight: 900;
+  height: 34px;
+  min-height: unset;
+  border: 1.5px solid color-mix(in srgb, var(--board-accent) 60%, rgba(72, 80, 78, 0.25));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--board-accent) 18%, var(--board-card));
+  color: var(--board-subtext);
+  font-size: 20px;
+  font-weight: 700;
   line-height: 1;
-  box-shadow: none !important;
+  padding: 0;
+  box-shadow: none;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
 .board-v2-month-jump > a:hover {
-  color: color-mix(in srgb, var(--board-accent) 72%, var(--board-text)) !important;
-  background: transparent !important;
+  background: var(--board-accent);
+  color: var(--board-on-accent);
+  transform: translateY(-1px);
 }
 
 .board-v2-month-jump input[type="month"] {
@@ -6259,9 +6268,8 @@ input {
   }
 
   .board-v2-month-jump > a {
-    width: 28px;
-    min-height: 32px;
-    font-size: 23px;
+    width: 30px;
+    height: 30px;
   }
 }
 

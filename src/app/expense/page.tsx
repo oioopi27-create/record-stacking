@@ -28,12 +28,6 @@ export default async function ExpensePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single()
-  const profilePrefs = profile as ProfilePrefs | null
-  const theme = resolveTheme(params, profilePrefs?.theme)
-  const font = resolveFont(params, profilePrefs?.font)
-  const calendarStartDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
-
   const now = new Date()
   const selectedDate = params?.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined
   const requested = params?.week ? new Date(`${params.week}T00:00:00`) : selectedDate ? new Date(`${selectedDate}T00:00:00`) : null
@@ -48,6 +42,34 @@ export default async function ExpensePage({
   const weekStartStr = toDateStr(weekStart)
   const weekEndStr = toDateStr(weekEnd)
   const weekLabel = weekOfMonthLabel(weekStart)
+
+  let expenseQuery = supabase
+    .from('expense')
+    .select('id, title, amount, date, entry_type, category_id, payment_method_id')
+    .eq('user_id', user.id)
+    .gte('date', weekStartStr)
+    .lte('date', weekEndStr)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (filterParam) expenseQuery = expenseQuery.eq('entry_type', filterParam)
+
+  const [
+    { data: profile },
+    [{ data: expenses }, { data: allExpenses }, { data: expenseCats }, { data: payMethods }],
+  ] = await Promise.all([
+    supabase.from('users').select('theme, font, nickname, diary_name, avatar_url, calendar_start_day').eq('id', user.id).single(),
+    Promise.all([
+      expenseQuery,
+      supabase.from('expense').select('amount, entry_type').eq('user_id', user.id).gte('date', weekStartStr).lte('date', weekEndStr),
+      supabase.from('expense_category').select('id, name, color').eq('user_id', user.id),
+      supabase.from('payment_method').select('id, name, color').eq('user_id', user.id),
+    ]),
+  ])
+
+  const profilePrefs = profile as ProfilePrefs | null
+  const theme = resolveTheme(params, profilePrefs?.theme)
+  const font = resolveFont(params, profilePrefs?.font)
+  const calendarStartDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
 
   function walletWeekHref(opts?: { week?: string; filter?: string | null }) {
     const q = new URLSearchParams()
@@ -73,28 +95,6 @@ export default async function ExpensePage({
     const s = q.toString()
     return s ? `/expense?${s}` : '/expense'
   }
-
-  let query = supabase
-    .from('expense')
-    .select('id, title, amount, date, entry_type, category_id, payment_method_id')
-    .eq('user_id', user.id)
-    .gte('date', weekStartStr)
-    .lte('date', weekEndStr)
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
-  if (filterParam) query = query.eq('entry_type', filterParam)
-
-  const [{ data: expenses }, { data: allExpenses }, { data: expenseCats }, { data: payMethods }] = await Promise.all([
-    query,
-    supabase
-      .from('expense')
-      .select('amount, entry_type')
-      .eq('user_id', user.id)
-      .gte('date', weekStartStr)
-      .lte('date', weekEndStr),
-    supabase.from('expense_category').select('id, name, color').eq('user_id', user.id),
-    supabase.from('payment_method').select('id, name, color').eq('user_id', user.id),
-  ])
 
   const allRows = (allExpenses ?? []) as { amount: number; entry_type?: 'income' | 'expense' | null }[]
   const incomeTotal = allRows.filter(row => row.entry_type === 'income').reduce((sum, row) => sum + row.amount, 0)

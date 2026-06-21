@@ -33,17 +33,6 @@ export default async function WeekPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('calendar_start_day, theme, font, nickname, diary_name, avatar_url')
-    .eq('id', user.id)
-    .single()
-
-  const profilePrefs = profile as ProfilePrefs | null
-  const theme = resolveTheme(params, profilePrefs?.theme)
-  const font = resolveFont(params, profilePrefs?.font)
-  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
-
   const now = new Date()
   const requestedMonth = params?.month && /^\d{4}-\d{2}$/.test(params.month) ? params.month : null
   const anchor = requestedMonth ? new Date(`${requestedMonth}-01T00:00:00`) : now
@@ -52,16 +41,9 @@ export default async function WeekPage({
   const todayStr = dateKey(now)
   const monthStart = `${year}-${pad(month)}-01`
   const monthEnd = `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
-  const dayOfWeek = now.getDay()
-  const weekStartDate = new Date(now)
-  if (startDay === 1) weekStartDate.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-  else weekStartDate.setDate(now.getDate() - dayOfWeek)
-  const weekEndDate = new Date(weekStartDate)
-  weekEndDate.setDate(weekStartDate.getDate() + 6)
-  const weekStart = dateKey(weekStartDate)
-  const weekEnd = dateKey(weekEndDate)
 
   const [
+    { data: profile },
     { count: scheduleCount },
     { data: todayExpenses },
     { data: monthSchedules },
@@ -70,6 +52,7 @@ export default async function WeekPage({
     { data: recentMemos },
     { data: userHabits },
   ] = await Promise.all([
+    supabase.from('users').select('calendar_start_day, theme, font, nickname, diary_name, avatar_url').eq('id', user.id).single(),
     supabase.from('schedule').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('date', todayStr),
     supabase.from('expense').select('amount, entry_type').eq('user_id', user.id).eq('date', todayStr),
     supabase.from('schedule').select('date, color, title').eq('user_id', user.id).gte('date', monthStart).lte('date', monthEnd),
@@ -84,6 +67,20 @@ export default async function WeekPage({
       .limit(3),
     supabase.from('habit').select('id').eq('user_id', user.id),
   ])
+
+  const profilePrefs = profile as ProfilePrefs | null
+  const theme = resolveTheme(params, profilePrefs?.theme)
+  const font = resolveFont(params, profilePrefs?.font)
+  const startDay = ((profilePrefs?.calendar_start_day ?? 1) as 0 | 1)
+
+  const dayOfWeek = now.getDay()
+  const weekStartDate = new Date(now)
+  if (startDay === 1) weekStartDate.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+  else weekStartDate.setDate(now.getDate() - dayOfWeek)
+  const weekEndDate = new Date(weekStartDate)
+  weekEndDate.setDate(weekStartDate.getDate() + 6)
+  const weekStart = dateKey(weekStartDate)
+  const weekEnd = dateKey(weekEndDate)
 
   const habitIds = userHabits?.map(habit => habit.id) ?? []
   let weekHabitCheckCount = 0
