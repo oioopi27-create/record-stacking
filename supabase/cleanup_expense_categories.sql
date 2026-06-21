@@ -1,6 +1,8 @@
 -- 지출 카테고리 전체 삭제 후 식비/교통비만 새로 등록
 -- Supabase 대시보드 → SQL Editor에서 실행
 
+ALTER TABLE expense_category ADD COLUMN IF NOT EXISTS color TEXT;
+
 DELETE FROM expense_category WHERE user_id = auth.uid();
 
 INSERT INTO expense_category (user_id, name, color) VALUES
