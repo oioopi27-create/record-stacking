@@ -48,15 +48,9 @@ const SETTINGS_MENU: { key: View; label: string }[] = [
 
 const CATEGORY_COLORS = [
   '#f7b9c0',
-  '#f7d6b9',
-  '#f4e8a8',
-  '#cfe9cb',
   '#bde5dd',
   '#b8d4e8',
-  '#c9c7ee',
-  '#e1c7ea',
-  '#e8dcc8',
-  '#d8d8d8',
+  '#f4e8a8',
 ]
 
 const THEME_LABELS: Record<BoardTheme, string> = {
@@ -80,7 +74,7 @@ const FONT_LABELS: Record<BoardFont, string> = {
 }
 
 const titleMap: Record<View, string> = {
-  settings: '환경설정',
+  settings: '사용자 설정',
   nickname: '사용자 수정',
   theme: '테마 변경',
   category: '카테고리 설정',
@@ -542,6 +536,18 @@ export default function ProfileCard({
                         aria-label={`색상 ${color}`}
                       />
                     ))}
+                    <label
+                      className={`board-v2-cat-color-swatch-custom${!CATEGORY_COLORS.includes(categoryColor) ? ' is-active' : ''}`}
+                      style={{ background: !CATEGORY_COLORS.includes(categoryColor) ? categoryColor : 'transparent' }}
+                      title="직접 색상 선택"
+                    >
+                      <input
+                        type="color"
+                        className="board-v2-cat-color-picker-input"
+                        value={categoryColor}
+                        onChange={e => setCategoryColor(e.target.value)}
+                      />
+                    </label>
                   </div>
                   {categoryError && <p className="board-v2-cal-error">{categoryError}</p>}
                   <button type="submit" className="board-v2-profile-save-btn" disabled={categoryPending}>

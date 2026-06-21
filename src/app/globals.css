@@ -430,23 +430,25 @@ input {
 }
 
 .board-v2-category-color-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 7px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.board-v2-category-color-grid button {
-  width: 100%;
-  aspect-ratio: 1;
-  min-height: 28px;
+.board-v2-category-color-grid button,
+.board-v2-category-color-grid label {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
   box-shadow: 0 0 0 0.5px rgba(72, 80, 78, 0.16);
   cursor: pointer;
 }
 
-.board-v2-category-color-grid button.is-active {
-  box-shadow: 0 0 0 2px var(--board-text);
+.board-v2-category-color-grid button.is-active,
+.board-v2-category-color-grid label.is-active {
+  box-shadow: 0 0 0 2.5px var(--board-text);
 }
 
 .board-v2-category-reset-btn {
