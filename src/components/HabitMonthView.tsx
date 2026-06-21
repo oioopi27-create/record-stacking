@@ -1,122 +1,252 @@
-import type { MoodLevel } from '@/app/actions/entries'
+'use client'
 
-const DOW_MON = ['월', '화', '수', '목', '금', '토', '일']
-const DOW_SUN = ['일', '월', '화', '수', '목', '금', '토']
+import { useMemo, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  addHabit,
+  deleteHabit,
+  renameHabit,
+  saveHabitReview,
+  toggleHabitCheck,
+} from '@/app/actions/entries'
 
-const MOOD_EMOJI: Record<MoodLevel, string> = { good: '😊', calm: '😌', tired: '😮‍💨', sad: '😔' }
-const MOOD_LABELS: { key: MoodLevel; label: string }[] = [
-  { key: 'good', label: 'GOOD' }, { key: 'calm', label: 'CALM' },
-  { key: 'tired', label: 'TIRED' }, { key: 'sad', label: 'SAD' },
-]
+type Habit = { id: string; name: string }
+type CheckRecord = { habit_id: string; date: string; is_checked?: boolean }
+type ReviewRecord = { habit_id: string; review: string | null }
 
 type Props = {
-  habits: { id: string; name: string }[]
-  checks: { habit_id: string; date: string }[]
-  moods: { date: string; mood: MoodLevel }[]
+  habits: Habit[]
+  checks: CheckRecord[]
+  reviews: ReviewRecord[]
   year: number
   month: number
-  startDay: 0 | 1
 }
 
+type CalendarCell =
+  | { key: string; day: null; date: null }
+  | { key: string; day: number; date: string }
+
+const weekLabels = ['월', '화', '수', '목', '금', '토', '일']
 const pad = (n: number) => String(n).padStart(2, '0')
 
-export default function HabitMonthView({ habits, checks, moods, year, month, startDay }: Props) {
-  const DOW = startDay === 1 ? DOW_MON : DOW_SUN
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const firstDow    = new Date(year, month - 1, 1).getDay()
-  const startOffset = startDay === 1 ? (firstDow + 6) % 7 : firstDow
+export default function HabitMonthView({ habits, checks, reviews, year, month }: Props) {
+  const router = useRouter()
+  const addInputRef = useRef<HTMLInputElement>(null)
+  const [isPending, startTransition] = useTransition()
+  const [checkStates, setCheckStates] = useState<Map<string, boolean>>(() => {
+    const next = new Map<string, boolean>()
+    checks.forEach(check => {
+      if (check.is_checked ?? true) next.set(`${check.habit_id}:${check.date}`, true)
+    })
+    return next
+  })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set())
+  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({})
+  const [reviewValues, setReviewValues] = useState<Record<string, string>>(() => {
+    return Object.fromEntries(reviews.map(review => [review.habit_id, review.review ?? '']))
+  })
+  const [savingReviewId, setSavingReviewId] = useState<string | null>(null)
 
-  const habitCount = habits.length
+  const monthStart = `${year}-${pad(month)}-01`
+  const calendarCells = useMemo<CalendarCell[]>(() => {
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const firstDay = new Date(year, month - 1, 1).getDay()
+    const leadingCells = firstDay === 0 ? 6 : firstDay - 1
+    return [
+      ...Array.from({ length: leadingCells }, (_, index) => ({
+        key: `empty-${index}`,
+        day: null,
+        date: null,
+      }) satisfies CalendarCell),
+      ...Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1
+        return {
+          key: `${day}`,
+          day,
+          date: `${year}-${pad(month)}-${pad(day)}`,
+        } satisfies CalendarCell
+      }),
+    ]
+  }, [month, year])
 
-  // date → checked habit count
-  const checksByDate = new Map<string, number>()
-  checks.forEach(c => checksByDate.set(c.date, (checksByDate.get(c.date) ?? 0) + 1))
+  const visibleHabits = useMemo(() => {
+    return habits
+      .filter(habit => !deletedIds.has(habit.id))
+      .map(habit => ({ ...habit, name: nameOverrides[habit.id] ?? habit.name }))
+  }, [deletedIds, habits, nameOverrides])
 
-  // date → mood
-  const moodByDate = new Map<string, MoodLevel>()
-  moods.forEach(m => moodByDate.set(m.date, m.mood))
+  async function handleAddHabit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const name = String(formData.get('name') ?? '').trim()
+    if (!name) return
+    const result = await addHabit(formData)
+    if (!result.error) {
+      event.currentTarget.reset()
+      addInputRef.current?.focus()
+      startTransition(() => router.refresh())
+    }
+  }
 
-  // mood frequency
-  const moodCounts: Record<MoodLevel, number> = { good: 0, calm: 0, tired: 0, sad: 0 }
-  moods.forEach(m => { moodCounts[m.mood]++ })
+  async function handleToggle(habitId: string, date: string) {
+    const key = `${habitId}:${date}`
+    const current = checkStates.get(key) ?? false
+    setCheckStates(prev => {
+      const next = new Map(prev)
+      if (current) next.delete(key)
+      else next.set(key, true)
+      return next
+    })
+    const result = await toggleHabitCheck(habitId, date, !current)
+    if (result.error) {
+      setCheckStates(prev => {
+        const next = new Map(prev)
+        if (current) next.set(key, true)
+        else next.delete(key)
+        return next
+      })
+      return
+    }
+    startTransition(() => router.refresh())
+  }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  function startEdit(habit: Habit) {
+    setEditingId(habit.id)
+    setEditingName(habit.name)
+  }
 
-  // calendar cells: null = padding, number = day
-  const cells: (number | null)[] = [
-    ...Array(startOffset).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
+  async function handleRename(habitId: string) {
+    const nextName = editingName.trim()
+    if (!nextName) return
+    setNameOverrides(prev => ({ ...prev, [habitId]: nextName }))
+    setEditingId(null)
+    const result = await renameHabit(habitId, nextName)
+    if (!result.error) startTransition(() => router.refresh())
+  }
+
+  async function handleDelete(habitId: string) {
+    if (!confirm('이 습관을 삭제할까요?')) return
+    setDeletedIds(prev => new Set(prev).add(habitId))
+    setEditingId(null)
+    const result = await deleteHabit(habitId)
+    if (!result.error) startTransition(() => router.refresh())
+  }
+
+  async function handleSaveReview(habitId: string) {
+    setSavingReviewId(habitId)
+    const result = await saveHabitReview(habitId, monthStart, reviewValues[habitId] ?? '')
+    setSavingReviewId(null)
+    if (!result.error) startTransition(() => router.refresh())
+  }
 
   return (
-    <div className="board-v2-habit-month">
-
-      {/* 기분 요약 */}
-      <div className="board-v2-habit-month-mood">
-        <span className="board-v2-label">이번 달 기분</span>
-        <div className="board-v2-habit-month-pills">
-          {MOOD_LABELS.map(({ key, label }) => moodCounts[key] > 0 && (
-            <span key={key} className="board-v2-habit-month-pill">
-              {MOOD_EMOJI[key]}
-              <span className="board-v2-habit-month-pill-label">{label}</span>
-              <strong>{moodCounts[key]}</strong>
-            </span>
-          ))}
-          {moods.length === 0 && (
-            <span className="board-v2-habit-month-empty">기록 없음</span>
-          )}
+    <div className="board-v2-habit-month-tracker" aria-busy={isPending}>
+      <div className="board-v2-habit-month-top">
+        <div>
+          <p className="board-v2-label">habit tracker</p>
+          <h3>{month}월 습관 기록</h3>
         </div>
+        <form className="board-v2-habit-month-add" onSubmit={handleAddHabit}>
+          <input ref={addInputRef} name="name" placeholder="습관 추가" maxLength={30} />
+          <button type="submit">추가</button>
+        </form>
       </div>
 
-      {/* 달력 그리드 */}
-      <div className="board-v2-habit-month-cal">
-        {DOW.map((d, i) => {
-          const isSat = startDay === 1 ? i === 5 : i === 6
-          const isSun = startDay === 1 ? i === 6 : i === 0
-          return (
-            <div key={d} className={`board-v2-habit-month-dow${isSat ? ' is-sat' : ''}${isSun ? ' is-sun' : ''}`}>{d}</div>
-          )
-        })}
-        {cells.map((day, i) => {
-          if (day === null) return <div key={`pad-${i}`} />
-          const dateStr = `${year}-${pad(month)}-${pad(day)}`
-          const checked  = checksByDate.get(dateStr) ?? 0
-          const mood     = moodByDate.get(dateStr)
-          const isToday  = dateStr === todayStr
-          const colIdx   = (startOffset + day - 1) % 7
-          const isSat    = startDay === 1 ? colIdx === 5 : colIdx === 6
-          const isSun    = startDay === 1 ? colIdx === 6 : colIdx === 0
-          const rate     = habitCount > 0 ? checked / habitCount : -1
-          const lvl      = rate < 0 ? '' : rate === 0 ? '' : rate >= 1 ? ' is-full' : ' is-partial'
-          return (
-            <div
-              key={dateStr}
-              className={`board-v2-habit-month-cell${lvl}${isToday ? ' is-today' : ''}${isSat ? ' is-sat' : ''}${isSun ? ' is-sun' : ''}`}
-            >
-              <span className="board-v2-habit-month-num">{day}</span>
-              {mood && <span className="board-v2-habit-month-emoji">{MOOD_EMOJI[mood]}</span>}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* 습관별 완료율 */}
-      {habits.length > 0 && (
-        <div className="board-v2-habit-month-summary">
-          <span className="board-v2-label">이번 달 습관</span>
-          {habits.map(h => {
-            const cnt = checks.filter(c => c.habit_id === h.id).length
-            const pct = Math.round((cnt / daysInMonth) * 100)
-            return (
-              <div key={h.id} className="board-v2-habit-month-row">
-                <span className="board-v2-habit-month-name">{h.name}</span>
-                <div className="board-v2-habit-month-bar-wrap">
-                  <div className="board-v2-habit-month-bar" style={{ width: `${pct}%` }} />
-                </div>
-                <span className="board-v2-habit-month-count">{cnt}/{daysInMonth}</span>
+      {visibleHabits.length === 0 ? (
+        <p className="board-v2-coming-soon">이번 달에 기록할 습관을 추가해 보세요.</p>
+      ) : (
+        <div className="board-v2-habit-month-list">
+          {visibleHabits.map(habit => (
+            <section key={habit.id} className="board-v2-habit-month-card">
+              <div className="board-v2-habit-month-title-row">
+                <span className="board-v2-habit-month-title-label">습관</span>
+                {editingId === habit.id ? (
+                  <div className="board-v2-habit-month-edit">
+                    <input
+                      value={editingName}
+                      onChange={event => setEditingName(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') handleRename(habit.id)
+                        if (event.key === 'Escape') setEditingId(null)
+                      }}
+                      maxLength={30}
+                      autoFocus
+                    />
+                    <button type="button" onClick={() => handleRename(habit.id)}>저장</button>
+                    <button type="button" onClick={() => handleDelete(habit.id)}>삭제</button>
+                    <button type="button" onClick={() => setEditingId(null)}>취소</button>
+                  </div>
+                ) : (
+                  <>
+                    <strong>{habit.name}</strong>
+                    <button
+                      type="button"
+                      className="board-v2-habit-month-more"
+                      onClick={() => startEdit(habit)}
+                      aria-label={`${habit.name} 수정`}
+                    >
+                      ...
+                    </button>
+                  </>
+                )}
               </div>
-            )
-          })}
+
+              <div className="board-v2-habit-month-calendar" role="grid" aria-label={`${habit.name} ${month}월 체크`}>
+                <div className="board-v2-habit-month-weekdays" aria-hidden="true">
+                  {weekLabels.map((label, index) => (
+                    <span
+                      key={label}
+                      className={`${index === 5 ? 'is-sat' : ''}${index === 6 ? ' is-sun' : ''}`}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <div className="board-v2-habit-month-days">
+                  {calendarCells.map(cell => {
+                    if (!cell.day || !cell.date) {
+                      return <span key={cell.key} className="board-v2-habit-month-day is-empty" aria-hidden="true" />
+                    }
+                    const checked = checkStates.get(`${habit.id}:${cell.date}`) ?? false
+                    return (
+                      <button
+                        key={cell.date}
+                        type="button"
+                        className={`board-v2-habit-month-day${checked ? ' is-checked' : ''}`}
+                        onClick={() => handleToggle(habit.id, cell.date)}
+                        aria-label={`${month}월 ${cell.day}일 ${checked ? '완료' : '미완료'}`}
+                      >
+                        <span>{cell.day}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="board-v2-habit-month-review">
+                <label htmlFor={`review-${habit.id}`}>리뷰</label>
+                <textarea
+                  id={`review-${habit.id}`}
+                  value={reviewValues[habit.id] ?? ''}
+                  onChange={event => {
+                    const value = event.target.value
+                    setReviewValues(prev => ({ ...prev, [habit.id]: value }))
+                  }}
+                  placeholder="이번 달 습관을 돌아보는 짧은 기록"
+                  rows={2}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveReview(habit.id)}
+                  disabled={savingReviewId === habit.id}
+                >
+                  {savingReviewId === habit.id ? '저장 중' : '저장'}
+                </button>
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>

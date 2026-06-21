@@ -162,6 +162,6 @@ export type MemoCard = {
 export type Theme = {
   id: string
   user_id: string
-  theme_preset: 'modern-white' | 'wood-beige' | 'dark' | 'pastel-cute'
-  font: 'pretendard' | 'pak-dahyeon' | 'kyobo-yubin'
+  theme_preset: 'white' | 'beige' | 'pastel-pink' | 'black'
+  font: 'gothic' | 'memoment' | 'kyobo'
 }

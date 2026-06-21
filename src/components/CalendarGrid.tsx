@@ -1,22 +1,15 @@
 'use client'
 
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { addSchedule, addHabit, addExpense, addMemo } from '@/app/actions/entries'
 import { useCalendarStartDay } from '@/context/CalendarStartDayContext'
 
-type Tab = 'schedule' | 'habit' | 'expense' | 'memo'
-
-const TABS: [Tab, string][] = [
-  ['schedule', '📅 일정'],
-  ['habit', '✅ 습관'],
-  ['expense', '💸 지출'],
-  ['memo', '📝 메모'],
-]
-
-const COLORS = [
-  '#ffb5c8', '#ffcfa3', '#fff4a3', '#b8f0b8',
-  '#a3d4ff', '#d4a3ff', '#a3ece8', '#d4c4b0',
+const ACTIONS = [
+  { href: '/schedule', label: '일정 추가' },
+  { href: '/habit', label: '습관 추가' },
+  { href: '/expense', label: '지갑 기록' },
+  { href: '/memo', label: '메모 추가' },
 ]
 
 const DOW_MON = ['월', '화', '수', '목', '금', '토', '일']
@@ -27,58 +20,35 @@ type Props = { year: number; month: number; today: number; events?: Event[] }
 
 export default function CalendarGrid({ year, month, today, events = [] }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
-  const [tab, setTab]           = useState<Tab>('schedule')
-  const [pending, setPending]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [color, setColor]       = useState(COLORS[4])
-  const router = useRouter()
-
+  const searchParams = useSearchParams()
   const { startDay } = useCalendarStartDay()
 
   const DOW = startDay === 1 ? DOW_MON : DOW_SUN
-  const daysInMonth  = new Date(year, month, 0).getDate()
-  const days         = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  const firstDow     = new Date(year, month - 1, 1).getDay()
-  const startOffset  = startDay === 1 ? (firstDow + 6) % 7 : firstDow
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  const firstDow = new Date(year, month - 1, 1).getDay()
+  const startOffset = startDay === 1 ? (firstDow + 6) % 7 : firstDow
 
-  // Map day → colors for that day
   const eventMap = new Map<number, string[]>()
   events.forEach(e => {
     if (!eventMap.has(e.day)) eventMap.set(e.day, [])
-    if (e.color) eventMap.get(e.day)!.push(e.color)
-    else eventMap.get(e.day)!.push('#a3d4ff')
+    eventMap.get(e.day)!.push(e.color ?? '#a8c4c8')
   })
 
-  const dateStr = selected
+  const selectedDate = selected
     ? `${year}-${String(month).padStart(2, '0')}-${String(selected).padStart(2, '0')}`
     : ''
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setPending(true)
-    setError(null)
-
-    const fd = new FormData(e.currentTarget)
-    if (dateStr) fd.set('date', dateStr)
-    if (tab === 'schedule') fd.set('color', color)
-
-    const result =
-      tab === 'schedule'  ? await addSchedule(fd)
-      : tab === 'habit'   ? await addHabit(fd)
-      : tab === 'expense' ? await addExpense(fd)
-      : await addMemo(fd)
-
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setSelected(null)
-      setError(null)
-      router.refresh()
-    }
-    setPending(false)
+  function actionHref(path: string) {
+    const params = new URLSearchParams()
+    const theme = searchParams.get('theme')
+    const font = searchParams.get('font')
+    if (theme) params.set('theme', theme)
+    if (font) params.set('font', font)
+    if (selectedDate) params.set('date', selectedDate)
+    const query = params.toString()
+    return query ? `${path}?${query}` : path
   }
-
-  function close() { setSelected(null); setError(null) }
 
   return (
     <section className="board-v2-mini-card board-v2-top-card">
@@ -86,8 +56,8 @@ export default function CalendarGrid({ year, month, today, events = [] }: Props)
         <span>{year}.{String(month).padStart(2, '0')}</span>
         <button type="button" onClick={() => setSelected(today)}>오늘</button>
       </div>
+
       <div className="board-v2-calendar-grid">
-        {/* 요일 헤더 */}
         {DOW.map((d, i) => {
           const isSat = startDay === 1 ? i === 5 : i === 6
           const isSun = startDay === 1 ? i === 6 : i === 0
@@ -97,28 +67,29 @@ export default function CalendarGrid({ year, month, today, events = [] }: Props)
             </div>
           )
         })}
-        {/* 첫 날 이전 빈 칸 */}
+
         {Array.from({ length: startOffset }, (_, i) => (
           <div key={`pad-${i}`} />
         ))}
-        {/* 날짜 버튼 */}
+
         {days.map(day => {
           const dots = eventMap.get(day) ?? []
-          const isToday    = day === today
+          const isToday = day === today
           const isSelected = day === selected
           const dow = (startOffset + day - 1) % 7
           const isSat = startDay === 1 ? dow === 5 : dow === 6
           const isSun = startDay === 1 ? dow === 6 : dow === 0
+
           return (
             <button
               key={day}
               type="button"
               className={[
-                isToday    ? 'is-today'    : '',
+                isToday ? 'is-today' : '',
                 isSelected ? 'is-selected' : '',
                 isSat ? 'is-sat' : isSun ? 'is-sun' : '',
               ].filter(Boolean).join(' ')}
-              onClick={() => setSelected(s => s === day ? null : day)}
+              onClick={() => setSelected(current => current === day ? null : day)}
             >
               {day}
               {dots.length > 0 && (
@@ -135,50 +106,17 @@ export default function CalendarGrid({ year, month, today, events = [] }: Props)
 
       {selected !== null && (
         <div className="board-v2-cal-popup">
-          <div className="board-v2-cal-popup-tabs">
-            {TABS.map(([t, label]) => (
-              <button key={t} type="button" className={tab === t ? 'is-active' : ''} onClick={() => setTab(t)}>
-                {label}
-              </button>
+          <div className="board-v2-cal-popup-title">
+            <strong>{month}.{selected}</strong>
+            <span>추가할 항목을 골라 주세요</span>
+          </div>
+          <div className="board-v2-cal-action-list">
+            {ACTIONS.map(action => (
+              <Link key={action.href} href={actionHref(action.href)} className="board-v2-cal-action">
+                {action.label}
+              </Link>
             ))}
           </div>
-          <form onSubmit={handleSubmit} className="board-v2-cal-form">
-            {tab === 'schedule' && (
-              <>
-                <input key="sched" name="title" placeholder="일정 이름" className="board-v2-cal-input" required autoFocus />
-                <input name="time" type="time" className="board-v2-cal-input" />
-                <div className="board-v2-color-row board-v2-color-row-sm">
-                  {COLORS.map(c => (
-                    <button
-                      key={c} type="button"
-                      className={`board-v2-color-dot board-v2-color-dot-sm${color === c ? ' is-selected' : ''}`}
-                      style={{ background: c }}
-                      onClick={() => setColor(c)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-            {tab === 'habit' && (
-              <input key="habit" name="name" placeholder="습관 이름" className="board-v2-cal-input" required autoFocus />
-            )}
-            {tab === 'expense' && (
-              <div key="expense" className="board-v2-cal-row">
-                <input name="title" placeholder="항목명" className="board-v2-cal-input" required autoFocus />
-                <input name="amount" type="number" placeholder="금액" className="board-v2-cal-input board-v2-cal-amount" required min={1} />
-              </div>
-            )}
-            {tab === 'memo' && (
-              <textarea key="memo" name="text" placeholder="오늘의 메모" className="board-v2-cal-input board-v2-cal-textarea" required autoFocus />
-            )}
-            {error && <p className="board-v2-cal-error">{error}</p>}
-            <div className="board-v2-cal-actions">
-              <button type="button" onClick={close} className="board-v2-cal-cancel">취소</button>
-              <button type="submit" disabled={pending} className="board-v2-cal-submit">
-                {pending ? '…' : '저장'}
-              </button>
-            </div>
-          </form>
         </div>
       )}
     </section>

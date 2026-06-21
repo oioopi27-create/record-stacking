@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { deleteSchedule, updateSchedule } from '@/app/actions/entries'
+import { addSchedule } from '@/app/actions/schedules'
 import { createClient } from '@/lib/supabase/client'
-import { addSchedule, updateSchedule, deleteSchedule } from '@/app/actions/entries'
 import TimePicker from '@/components/TimePicker'
+import { getHolidaysForMonth } from '@/lib/korean-holidays'
 
-const COLORS = [
-  '#ffb5c8', '#ffcfa3', '#fff4a3', '#b8f0b8',
-  '#a3d4ff', '#d4a3ff', '#a3ece8', '#d4c4b0',
-]
+type Category = { id: string; name: string; color: string }
 
 type Evt = {
   id: string
@@ -19,6 +18,7 @@ type Evt = {
   color: string | null
   is_done: boolean
   user_id: string
+  category_id?: string | null
 }
 
 type Props = {
@@ -28,115 +28,220 @@ type Props = {
   todayStr: string
   currentUserId: string
   startDay?: 0 | 1
+  initialSelectedDate?: string
+  categoryFilter?: string
+}
+
+type CatPickerProps = {
+  categories: Category[]
+  catId: string
+  onCatChange: (id: string) => void
+  color: string
+  onColorChange: (c: string) => void
+}
+
+function CategoryColorPicker({ categories, catId, onCatChange, color, onColorChange }: CatPickerProps) {
+  const selectedCat = categories.find(c => c.id === catId)
+  return (
+    <div className="board-v2-cat-color-picker">
+      <div className="board-v2-cat-color-swatches">
+        <button
+          type="button"
+          className={`board-v2-cat-color-item is-none${!catId ? ' is-selected' : ''}`}
+          onClick={() => onCatChange('')}
+          title="카테고리 없음"
+        >
+          없음
+        </button>
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            type="button"
+            className={`board-v2-cat-color-item${catId === cat.id ? ' is-selected' : ''}`}
+            data-color={cat.color}
+            style={{ '--cat-dot-color': cat.color } as React.CSSProperties}
+            onClick={() => onCatChange(cat.id)}
+            title={cat.name}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+      <div className="board-v2-cat-color-free">
+        <label className="board-v2-color-label">
+          직접 색상
+          <input
+            type="color"
+            className="board-v2-color-input"
+            value={selectedCat ? selectedCat.color : color}
+            disabled={!!catId}
+            onChange={e => onColorChange(e.target.value)}
+            style={{ opacity: catId ? 0.35 : 1 }}
+          />
+        </label>
+      </div>
+    </div>
+  )
 }
 
 const DOW_MON = ['월', '화', '수', '목', '금', '토', '일']
 const DOW_SUN = ['일', '월', '화', '수', '목', '금', '토']
+const pad = (n: number) => String(n).padStart(2, '0')
+const DEFAULT_COLOR = '#a8d4f5'
 
 export default function MonthCalendar({
-  initialEvents, initialYear, initialMonth, todayStr, currentUserId, startDay = 1,
+  initialEvents,
+  initialYear,
+  initialMonth,
+  todayStr,
+  currentUserId,
+  startDay = 1,
+  initialSelectedDate,
+  categoryFilter,
 }: Props) {
-  const [year, setYear]         = useState(initialYear)
-  const [month, setMonth]       = useState(initialMonth)
-  const [events, setEvents]     = useState<Evt[]>(initialEvents)
-  const [loading, setLoading]   = useState(false)
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
-  const [addColor, setAddColor]   = useState('')
-  const [pending, setPending]     = useState(false)
-  const [addError, setAddError]   = useState<string | null>(null)
+  const [year, setYear] = useState(initialYear)
+  const [month, setMonth] = useState(initialMonth)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [pickerYear, setPickerYear] = useState(initialYear)
+  const [fetchedEvents, setFetchedEvents] = useState<Evt[] | null>(null)
+  const [localEvents, setLocalEvents] = useState<Evt[]>([])
+  const [selectedDay, setSelectedDay] = useState<number | null>(
+    initialSelectedDate ? parseInt(initialSelectedDate.slice(8, 10), 10) : null,
+  )
+  const [categories, setCategories] = useState<Category[]>([])
+  const [addCatId, setAddCatId] = useState('')
+  const [addColor, setAddColor] = useState(DEFAULT_COLOR)
+  const [pending, setPending] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editColor, setEditColor] = useState('')
+  const [editCatId, setEditCatId] = useState('')
+  const [editColor, setEditColor] = useState(DEFAULT_COLOR)
   const [editPending, setEditPending] = useState(false)
-  const [editError, setEditError]     = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const router = useRouter()
 
-  function startEdit(ev: Evt) {
-    setEditingId(ev.id)
-    setEditColor(ev.color ?? '')
-    setEditError(null)
-  }
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('schedule_category')
+      .select('id, name, color')
+      .eq('user_id', currentUserId)
+      .order('created_at')
+      .then(({ data }) => {
+        setCategories((data ?? []) as Category[])
+      })
+  }, [currentUserId])
 
-  async function handleUpdateSubmit(e: React.FormEvent<HTMLFormElement>, evId: string) {
-    e.preventDefault()
-    setEditPending(true)
-    const fd = new FormData(e.currentTarget)
-    if (editColor) fd.set('color', editColor)
-    const result = await updateSchedule(evId, fd)
-    if (result.error) {
-      setEditError(result.error)
-    } else {
-      const title = (fd.get('title') as string)?.trim() ?? ''
-      const time  = (fd.get('time') as string) || null
-      setEvents(prev => prev.map(ev => ev.id === evId
-        ? { ...ev, title, time, color: editColor || null }
-        : ev))
-      setEditingId(null)
-      router.refresh()
-    }
-    setEditPending(false)
-  }
-
-  async function handleDelete(evId: string) {
-    setEditPending(true)
-    const result = await deleteSchedule(evId)
-    if (result.error) {
-      setEditError(result.error)
-    } else {
-      setEvents(prev => prev.filter(ev => ev.id !== evId))
-      setEditingId(null)
-      router.refresh()
-    }
-    setEditPending(false)
-  }
-
-  const todayYear  = parseInt(todayStr.slice(0, 4))
-  const todayMonth = parseInt(todayStr.slice(5, 7))
-  const todayDay   = parseInt(todayStr.slice(8, 10))
-  const isCurrentMonth = year === todayYear && month === todayMonth
+  const isInitialMonth = year === initialYear && month === initialMonth
+  const events = useMemo(() => {
+    const base = isInitialMonth ? initialEvents : (fetchedEvents ?? [])
+    if (localEvents.length === 0) return base
+    const byId = new Map(base.map(event => [event.id, event]))
+    localEvents.forEach(event => byId.set(event.id, event))
+    return Array.from(byId.values())
+  }, [fetchedEvents, initialEvents, isInitialMonth, localEvents])
 
   useEffect(() => {
-    if (year === initialYear && month === initialMonth) return
-    setLoading(true)
-    const pad = (n: number) => String(n).padStart(2, '0')
+    if (isInitialMonth) return
     const monthStart = `${year}-${pad(month)}-01`
-    const daysInM = new Date(year, month, 0).getDate()
-    const monthEnd = `${year}-${pad(month)}-${daysInM}`
-    const sb = createClient()
-    sb.from('schedule')
-      .select('id, title, date, time, color, is_done, user_id')
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const monthEnd = `${year}-${pad(month)}-${pad(daysInMonth)}`
+    const supabase = createClient()
+    let cancelled = false
+    let query = supabase
+      .from('schedule')
+      .select('id, title, date, time, color, is_done, user_id, category_id')
+      .eq('user_id', currentUserId)
       .gte('date', monthStart)
       .lte('date', monthEnd)
       .order('date')
-      .then(({ data }) => { setEvents(data ?? []); setLoading(false) })
-  }, [year, month, initialYear, initialMonth])
+    if (categoryFilter) query = query.eq('category_id', categoryFilter)
+    query.then(({ data }) => {
+      if (!cancelled) setFetchedEvents((data ?? []) as Evt[])
+    })
+    return () => { cancelled = true }
+  }, [categoryFilter, currentUserId, isInitialMonth, month, year])
+
+  const addCatColor = categories.find(c => c.id === addCatId)?.color ?? null
+  const editCatColor = categories.find(c => c.id === editCatId)?.color ?? null
+
+  function startEdit(event: Evt) {
+    setEditingId(event.id)
+    setEditCatId(event.category_id ?? '')
+    setEditColor(event.color ?? DEFAULT_COLOR)
+    setEditError(null)
+  }
+
+  async function handleUpdateSubmit(e: React.FormEvent<HTMLFormElement>, eventId: string) {
+    e.preventDefault()
+    setEditPending(true)
+    const formData = new FormData(e.currentTarget)
+    const resolvedColor = editCatColor ?? editColor
+    formData.set('color', resolvedColor)
+    if (editCatId) formData.set('category_id', editCatId)
+    const result = await updateSchedule(eventId, formData)
+    if (result.error) {
+      setEditError(result.error)
+    } else {
+      const title = (formData.get('title') as string)?.trim() ?? ''
+      const time = (formData.get('time') as string) || null
+      setLocalEvents(prev => [
+        ...prev.filter(item => item.id !== eventId),
+        ...events.filter(item => item.id === eventId).map(item => ({
+          ...item, title, time, color: resolvedColor, category_id: editCatId || null,
+        })),
+      ])
+      setEditingId(null)
+      router.refresh()
+    }
+    setEditPending(false)
+  }
+
+  async function handleDelete(eventId: string) {
+    setEditPending(true)
+    const result = await deleteSchedule(eventId)
+    if (result.error) {
+      setEditError(result.error)
+    } else {
+      setLocalEvents(prev => prev.filter(item => item.id !== eventId))
+      setFetchedEvents(prev => prev ? prev.filter(item => item.id !== eventId) : prev)
+      setEditingId(null)
+      router.refresh()
+    }
+    setEditPending(false)
+  }
 
   function prevMonth() {
     setSelectedDay(null)
-    if (month === 1) { setYear(y => y - 1); setMonth(12) }
-    else setMonth(m => m - 1)
+    if (month === 1) { setYear(v => v - 1); setMonth(12) }
+    else setMonth(v => v - 1)
   }
+
   function nextMonth() {
     setSelectedDay(null)
-    if (month === 12) { setYear(y => y + 1); setMonth(1) }
-    else setMonth(m => m + 1)
+    if (month === 12) { setYear(v => v + 1); setMonth(1) }
+    else setMonth(v => v + 1)
   }
 
-  const DOW = startDay === 1 ? DOW_MON : DOW_SUN
+  const todayYear = parseInt(todayStr.slice(0, 4), 10)
+  const todayMonth = parseInt(todayStr.slice(5, 7), 10)
+  const todayDay = parseInt(todayStr.slice(8, 10), 10)
+  const isCurrentMonth = year === todayYear && month === todayMonth
+  const dayLabels = startDay === 1 ? DOW_MON : DOW_SUN
   const daysInMonth = new Date(year, month, 0).getDate()
-  const firstDow    = new Date(year, month - 1, 1).getDay()
-  // startDay=1(Mon): Sun=6,Mon=0,Tue=1... startDay=0(Sun): Sun=0,Mon=1...
+  const firstDow = new Date(year, month - 1, 1).getDay()
   const startOffset = startDay === 1 ? (firstDow + 6) % 7 : firstDow
+  const holidays = getHolidaysForMonth(year, month)
+  const holidayMap = new Map(holidays.map(h => [parseInt(h.date.slice(8, 10), 10), h.name]))
 
   const eventsByDay = new Map<number, Evt[]>()
-  events.forEach(e => {
-    const d = parseInt(e.date.slice(8, 10), 10)
-    if (!eventsByDay.has(d)) eventsByDay.set(d, [])
-    eventsByDay.get(d)!.push(e)
+  events.forEach(event => {
+    const day = parseInt(event.date.slice(8, 10), 10)
+    if (!eventsByDay.has(day)) eventsByDay.set(day, [])
+    eventsByDay.get(day)!.push(event)
   })
 
-  const selectedDateStr = selectedDay
-    ? `${year}-${String(month).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
-    : ''
+  const selectedDateStr = selectedDay ? `${year}-${pad(month)}-${pad(selectedDay)}` : ''
   const selectedEvents = selectedDay ? (eventsByDay.get(selectedDay) ?? []) : []
 
   async function handleAddSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -145,26 +250,19 @@ export default function MonthCalendar({
     setPending(true)
     setAddError(null)
     const form = e.currentTarget
-    const fd = new FormData(form)
-    fd.set('date', selectedDateStr)
-    if (addColor) fd.set('color', addColor)
-    const result = await addSchedule(fd)
+    const formData = new FormData(form)
+    formData.set('date', selectedDateStr)
+    formData.set('color', addCatColor ?? addColor)
+    if (addCatId) formData.set('category_id', addCatId)
+    else if (categoryFilter) formData.set('category_id', categoryFilter)
+    const result = await addSchedule(formData)
     if (result.error) {
       setAddError(result.error)
     } else {
-      const title = (fd.get('title') as string)?.trim() ?? ''
-      const time  = (fd.get('time') as string) || null
-      setEvents(prev => [...prev, {
-        id: `tmp-${Date.now()}`,
-        title,
-        date: selectedDateStr,
-        time,
-        color: addColor || null,
-        is_done: false,
-        user_id: currentUserId,
-      }])
+      if (result.schedule) setLocalEvents(prev => [...prev, result.schedule!])
       form.reset()
-      setAddColor('')
+      setAddCatId('')
+      setAddColor(DEFAULT_COLOR)
       router.refresh()
     }
     setPending(false)
@@ -172,39 +270,72 @@ export default function MonthCalendar({
 
   return (
     <div className="board-v2-month-cal">
-      {/* Header */}
       <div className="board-v2-month-cal-header">
-        <button type="button" onClick={prevMonth} aria-label="이전 달">‹</button>
-        <span className="board-v2-month-cal-title">
-          {year}년 {month}월{loading && <span className="board-v2-month-cal-loading"> …</span>}
-        </span>
-        <button type="button" onClick={nextMonth} aria-label="다음 달">›</button>
+        <button type="button" className="board-v2-month-cal-arrow" onClick={prevMonth} aria-label="이전 달">&#8249;</button>
+        <div className="board-v2-month-cal-title-group">
+          <span className="board-v2-month-cal-title">{year}년 {month}월</span>
+          <button
+            type="button"
+            className="board-v2-month-cal-year-btn"
+            onClick={() => { setDatePickerOpen(v => !v); setPickerYear(year) }}
+            aria-label="년/월 선택"
+            aria-expanded={datePickerOpen}
+          >
+            ▾
+          </button>
+        </div>
+        <button type="button" className="board-v2-month-cal-arrow" onClick={nextMonth} aria-label="다음 달">&#8250;</button>
       </div>
 
-      {/* Day of week row */}
+      {datePickerOpen && (
+        <div className="board-v2-date-picker">
+          <div className="board-v2-date-picker-year-row">
+            <button type="button" onClick={() => setPickerYear(y => y - 1)}>‹</button>
+            <span>{pickerYear}년</span>
+            <button type="button" onClick={() => setPickerYear(y => y + 1)}>›</button>
+          </div>
+          <div className="board-v2-date-picker-months">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+              <button
+                key={m}
+                type="button"
+                className={[
+                  'board-v2-date-picker-month-btn',
+                  pickerYear === year && m === month ? 'is-active' : '',
+                ].filter(Boolean).join(' ')}
+                onClick={() => {
+                  setYear(pickerYear); setMonth(m)
+                  setDatePickerOpen(false); setSelectedDay(null)
+                }}
+              >
+                {m}월
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="board-v2-month-cal-dow">
-        {DOW.map((d, i) => {
-          const isSat = startDay === 1 ? i === 5 : i === 6
-          const isSun = startDay === 1 ? i === 6 : i === 0
-          return (
-            <div key={d} className={isSat ? 'is-sat' : isSun ? 'is-sun' : ''}>{d}</div>
-          )
+        {dayLabels.map((label, index) => {
+          const isSat = startDay === 1 ? index === 5 : index === 6
+          const isSun = startDay === 1 ? index === 6 : index === 0
+          return <div key={label} className={isSat ? 'is-sat' : isSun ? 'is-sun' : ''}>{label}</div>
         })}
       </div>
 
-      {/* Grid */}
       <div className="board-v2-month-cal-grid">
-        {Array.from({ length: startOffset }, (_, i) => (
-          <div key={`pad-${i}`} className="board-v2-month-cal-cell is-pad" />
+        {Array.from({ length: startOffset }, (_, index) => (
+          <div key={`pad-${index}`} className="board-v2-month-cal-cell is-pad" />
         ))}
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const day    = i + 1
-          const dow    = (startOffset + i) % 7
-          const isSat  = startDay === 1 ? dow === 5 : dow === 6
-          const isSun  = startDay === 1 ? dow === 6 : dow === 0
+        {Array.from({ length: daysInMonth }, (_, index) => {
+          const day = index + 1
+          const dayOfWeek = (startOffset + index) % 7
+          const isSat = startDay === 1 ? dayOfWeek === 5 : dayOfWeek === 6
+          const isSun = startDay === 1 ? dayOfWeek === 6 : dayOfWeek === 0
           const isToday = isCurrentMonth && day === todayDay
-          const isSel  = day === selectedDay
-          const dayEvts = eventsByDay.get(day) ?? []
+          const isSelected = day === selectedDay
+          const dayEvents = eventsByDay.get(day) ?? []
+          const holidayName = holidayMap.get(day)
 
           return (
             <button
@@ -213,32 +344,35 @@ export default function MonthCalendar({
               className={[
                 'board-v2-month-cal-cell',
                 isToday ? 'is-today' : '',
-                isSel   ? 'is-selected' : '',
-                isSat   ? 'is-sat' : isSun ? 'is-sun' : '',
+                isSelected ? 'is-selected' : '',
+                // 공휴일은 토요일이라도 항상 is-sun (빨간색)
+                (isSun || holidayName) ? 'is-sun' : isSat ? 'is-sat' : '',
               ].filter(Boolean).join(' ')}
-              onClick={() => setSelectedDay(d => d === day ? null : day)}
+              onClick={() => setSelectedDay(value => value === day ? null : day)}
             >
-              <span className="board-v2-month-cal-day">{day}</span>
+              <div className="board-v2-month-cal-day-row">
+                <span className="board-v2-month-cal-day">{day}</span>
+                {holidayName && <span className="board-v2-month-cal-holiday-name">{holidayName}</span>}
+              </div>
               <div className="board-v2-month-cal-events">
-                {dayEvts.slice(0, 3).map(ev => (
+                {dayEvents.slice(0, 3).map(item => (
                   <span
-                    key={ev.id}
+                    key={item.id}
                     className={[
                       'board-v2-month-cal-ev',
-                      ev.time ? '' : 'is-allday',
-                      ev.is_done ? 'is-done' : '',
-                      ev.user_id !== currentUserId ? 'is-shared' : '',
+                      item.time ? '' : 'is-allday',
+                      item.is_done ? 'is-done' : '',
+                      item.user_id !== currentUserId ? 'is-shared' : '',
                     ].filter(Boolean).join(' ')}
-                    style={ev.time
-                      ? { borderLeftColor: ev.color ?? 'var(--board-accent)' }
-                      : { background: ev.color ?? 'var(--board-accent)' }
-                    }
+                    style={item.time
+                      ? { borderLeftColor: item.color ?? 'var(--board-accent)' }
+                      : { background: item.color ?? 'var(--board-accent)' }}
                   >
-                    {ev.time ? ev.time.slice(0, 5) + ' ' : ''}{ev.title}
+                    {item.time ? `${item.time.slice(0, 5)} ` : ''}{item.title}
                   </span>
                 ))}
-                {dayEvts.length > 3 && (
-                  <span className="board-v2-month-cal-more">+{dayEvts.length - 3}</span>
+                {dayEvents.length > 3 && (
+                  <span className="board-v2-month-cal-more">+{dayEvents.length - 3}</span>
                 )}
               </div>
             </button>
@@ -246,62 +380,55 @@ export default function MonthCalendar({
         })}
       </div>
 
-      {/* Day detail + add form */}
       {selectedDay && (
         <div className="board-v2-month-cal-detail">
           <div className="board-v2-month-cal-detail-hd">
             <strong>{month}월 {selectedDay}일</strong>
-            <button type="button" onClick={() => setSelectedDay(null)}>✕</button>
+            <button type="button" onClick={() => setSelectedDay(null)}>닫기</button>
           </div>
 
           {selectedEvents.length > 0 && (
             <ul className="board-v2-month-cal-ev-list">
-              {selectedEvents.map(ev => (
-                editingId === ev.id ? (
-                  <li key={ev.id} className="board-v2-month-cal-ev-edit-item">
-                    <form onSubmit={e => handleUpdateSubmit(e, ev.id)}>
-                      <input name="title" defaultValue={ev.title}
-                        className="board-v2-cal-input" required autoFocus />
-                      <TimePicker name="time" endName="time_end" defaultValue={ev.time ?? undefined} />
-                      <div className="board-v2-color-row board-v2-color-row-sm">
-                        <button type="button"
-                          className={`board-v2-color-dot board-v2-color-dot-sm board-v2-color-none${editColor === '' ? ' is-selected' : ''}`}
-                          onClick={() => setEditColor('')} title="색상 없음" />
-                        {COLORS.map(c => (
-                          <button key={c} type="button"
-                            className={`board-v2-color-dot board-v2-color-dot-sm${editColor === c ? ' is-selected' : ''}`}
-                            style={{ background: c }} onClick={() => setEditColor(c)} />
-                        ))}
-                      </div>
+              {selectedEvents.map(item => (
+                editingId === item.id ? (
+                  <li key={item.id} className="board-v2-month-cal-ev-edit-item">
+                    <form onSubmit={e => handleUpdateSubmit(e, item.id)}>
+                      <input name="title" defaultValue={item.title} className="board-v2-cal-input" required autoFocus />
+                      <TimePicker name="time" endName="time_end" defaultValue={item.time ?? undefined} />
+                      <CategoryColorPicker
+                        categories={categories}
+                        catId={editCatId}
+                        onCatChange={setEditCatId}
+                        color={editColor}
+                        onColorChange={setEditColor}
+                      />
                       {editError && <p className="board-v2-cal-error">{editError}</p>}
                       <div className="board-v2-cal-actions">
-                        <button type="button" className="board-v2-cal-delete" disabled={editPending}
-                          onClick={() => handleDelete(ev.id)}>삭제</button>
-                        <button type="button" className="board-v2-cal-cancel" disabled={editPending}
-                          onClick={() => setEditingId(null)}>취소</button>
+                        <button type="button" className="board-v2-cal-delete" disabled={editPending} onClick={() => handleDelete(item.id)}>삭제</button>
+                        <button type="button" className="board-v2-cal-cancel" disabled={editPending} onClick={() => setEditingId(null)}>취소</button>
                         <button type="submit" className="board-v2-cal-submit" disabled={editPending}>
-                          {editPending ? '…' : '저장'}
+                          {editPending ? '저장 중' : '저장'}
                         </button>
                       </div>
                     </form>
                   </li>
                 ) : (
-                  <li key={ev.id}
+                  <li
+                    key={item.id}
                     className={[
-                      ev.time ? '' : 'is-allday',
-                      ev.is_done ? 'is-done' : '',
-                      ev.user_id !== currentUserId ? 'is-shared' : '',
+                      item.time ? '' : 'is-allday',
+                      item.is_done ? 'is-done' : '',
+                      item.user_id !== currentUserId ? 'is-shared' : '',
                     ].filter(Boolean).join(' ')}
-                    style={{ borderLeftColor: ev.color ?? 'var(--board-accent)' }}>
-                    {ev.time
-                      ? <span className="board-v2-month-cal-ev-time">{ev.time.slice(0, 5)}</span>
-                      : <span className="board-v2-month-cal-allday-badge">하루 종일</span>
-                    }
-                    <span className="board-v2-month-cal-ev-title">{ev.title}</span>
-                    {ev.user_id !== currentUserId && <span className="board-v2-month-cal-shared-badge">공유</span>}
-                    {ev.user_id === currentUserId && (
-                      <button type="button" className="board-v2-month-cal-ev-edit-btn"
-                        onClick={() => startEdit(ev)}>편집</button>
+                    style={{ borderLeftColor: item.color ?? 'var(--board-accent)' }}
+                  >
+                    {item.time
+                      ? <span className="board-v2-month-cal-ev-time">{item.time.slice(0, 5)}</span>
+                      : <span className="board-v2-month-cal-allday-badge">종일</span>}
+                    <span className="board-v2-month-cal-ev-title">{item.title}</span>
+                    {item.user_id !== currentUserId && <span className="board-v2-month-cal-shared-badge">공유</span>}
+                    {item.user_id === currentUserId && (
+                      <button type="button" className="board-v2-month-cal-ev-edit-btn" onClick={() => startEdit(item)}>편집</button>
                     )}
                   </li>
                 )
@@ -309,24 +436,20 @@ export default function MonthCalendar({
             </ul>
           )}
 
-          {/* Quick-add form for this day */}
           <form onSubmit={handleAddSubmit} className="board-v2-month-cal-add">
             <input name="title" placeholder="+ 일정 추가" className="board-v2-cal-input" required />
             <TimePicker name="time" endName="time_end" />
-            <div className="board-v2-color-row board-v2-color-row-sm">
-              <button type="button"
-                className={`board-v2-color-dot board-v2-color-dot-sm board-v2-color-none${addColor === '' ? ' is-selected' : ''}`}
-                onClick={() => setAddColor('')} title="색상 없음" />
-              {COLORS.map(c => (
-                <button key={c} type="button"
-                  className={`board-v2-color-dot board-v2-color-dot-sm${addColor === c ? ' is-selected' : ''}`}
-                  style={{ background: c }} onClick={() => setAddColor(c)} />
-              ))}
-            </div>
+            <CategoryColorPicker
+              categories={categories}
+              catId={addCatId}
+              onCatChange={setAddCatId}
+              color={addColor}
+              onColorChange={setAddColor}
+            />
             {addError && <p className="board-v2-cal-error">{addError}</p>}
             <div className="board-v2-cal-actions">
               <button type="submit" disabled={pending} className="board-v2-cal-submit">
-                {pending ? '…' : '저장'}
+                {pending ? '저장 중' : '저장'}
               </button>
             </div>
           </form>

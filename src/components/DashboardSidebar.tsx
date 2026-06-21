@@ -1,20 +1,43 @@
 import { createClient } from '@/lib/supabase/server'
 import ProfileCard from '@/components/ProfileCard'
 import CalendarGrid from '@/components/CalendarGrid'
+import TodayMemoToggle from '@/components/TodayMemoToggle'
 import { CalendarStartDayProvider } from '@/context/CalendarStartDayContext'
+import { boardHref, type BoardFont, type BoardTheme } from '@/components/BoardShell'
 
-type Props = { userId: string }
+type Props = {
+  userId: string
+  theme: BoardTheme
+  font: BoardFont
+  basePath: string
+}
 
-export default async function DashboardSidebar({ userId }: Props) {
+type ProfileRow = {
+  nickname?: string | null
+  diary_name?: string | null
+  avatar_url?: string | null
+  calendar_start_day?: number | null
+}
+
+export default async function DashboardSidebar({ userId, theme, font, basePath }: Props) {
   const supabase = await createClient()
   const now = new Date()
-  const year     = now.getFullYear()
-  const month    = now.getMonth() + 1
-  const todayNum = now.getDate()
-  const todayStr = `${year}-${String(month).padStart(2, '0')}-${String(todayNum).padStart(2, '0')}`
   const pad = (n: number) => String(n).padStart(2, '0')
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const todayNum = now.getDate()
+  const todayStr = `${year}-${pad(month)}-${pad(todayNum)}`
   const monthStart = `${year}-${pad(month)}-01`
-  const monthEnd   = `${year}-${pad(month)}-${new Date(year, month, 0).getDate()}`
+  const monthEnd = `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
+
+  const dow = now.getDay()
+  const weekStartDate = new Date(now)
+  weekStartDate.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1))
+  const weekEndDate = new Date(weekStartDate)
+  weekEndDate.setDate(weekStartDate.getDate() + 6)
+  const dateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const weekStart = dateStr(weekStartDate)
+  const weekEnd = dateStr(weekEndDate)
 
   const [
     { data: profile },
@@ -22,15 +45,21 @@ export default async function DashboardSidebar({ userId }: Props) {
     { count: scheduleCount },
     { data: todayExpenses },
     { data: todaySchedules },
+    { data: weekSchedules },
+    { data: monthScheduleCards },
     { data: monthSchedules },
+    { data: recentMemos },
     { data: membership },
   ] = await Promise.all([
     supabase.from('users').select('nickname, diary_name, avatar_url, calendar_start_day').eq('id', userId).single(),
-    supabase.from('habit').select('id').eq('user_id', userId),
+    supabase.from('habit').select('id, name').eq('user_id', userId).order('created_at').limit(3),
     supabase.from('schedule').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('date', todayStr),
-    supabase.from('expense').select('title, amount').eq('user_id', userId).eq('date', todayStr).limit(3),
+    supabase.from('expense').select('title, amount, entry_type').eq('user_id', userId).eq('date', todayStr).limit(8),
     supabase.from('schedule').select('id, title').eq('user_id', userId).eq('date', todayStr).order('created_at').limit(3),
+    supabase.from('schedule').select('id, title').eq('user_id', userId).gte('date', weekStart).lte('date', weekEnd).order('date').limit(3),
+    supabase.from('schedule').select('id, title').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd).order('date').limit(3),
     supabase.from('schedule').select('date, color').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
+    supabase.from('memo_card').select('id, date, text').eq('user_id', userId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(3),
     supabase
       .from('calendar_group_member')
       .select('group_id, calendar_group(id, name, invite_code)')
@@ -39,7 +68,7 @@ export default async function DashboardSidebar({ userId }: Props) {
       .maybeSingle(),
   ])
 
-  const habitIds = userHabits?.map(h => h.id) ?? []
+  const habitIds = userHabits?.map(habit => habit.id) ?? []
   let habitCheckCount = 0
   if (habitIds.length > 0) {
     const { count } = await supabase
@@ -60,66 +89,88 @@ export default async function DashboardSidebar({ userId }: Props) {
       .select('user_id, users(nickname)')
       .eq('group_id', group.id)
       .neq('user_id', userId)
-    members = (memberRows ?? []).map(m => ({
-      user_id: m.user_id,
-      nickname: (m as { users?: { nickname?: string } | null }).users?.nickname ?? null,
+    members = (memberRows ?? []).map(member => ({
+      user_id: member.user_id,
+      nickname: (member as { users?: { nickname?: string } | null }).users?.nickname ?? null,
     }))
   }
 
-  const expenseTotal = todayExpenses?.reduce((s, e) => s + e.amount, 0) ?? 0
-  const nickname    = profile?.nickname ?? '사용자'
-  const diaryName   = (profile as { diary_name?: string } | null)?.diary_name ?? '기록 들이기'
-  const avatarUrl   = (profile as { avatar_url?: string | null } | null)?.avatar_url ?? null
-  const calendarStartDay = ((profile as { calendar_start_day?: number } | null)?.calendar_start_day ?? 1) as 0 | 1
+  const walletRows = (todayExpenses ?? []) as { title: string; amount: number; entry_type?: 'income' | 'expense' | null }[]
+  const incomeTotal = walletRows.filter(row => row.entry_type === 'income').reduce((sum, row) => sum + row.amount, 0)
+  const expenseTotal = walletRows.filter(row => row.entry_type !== 'income').reduce((sum, row) => sum + row.amount, 0)
+  const scheduleCardItems =
+    todaySchedules && todaySchedules.length > 0
+      ? { label: '오늘', items: todaySchedules }
+      : weekSchedules && weekSchedules.length > 0
+        ? { label: '이번 주', items: weekSchedules }
+        : { label: '이번 달', items: monthScheduleCards ?? [] }
 
-  const calendarEvents = (monthSchedules ?? []).map(s => ({
-    day: parseInt(s.date.slice(-2), 10),
-    color: s.color as string | null,
+  const profileRow = profile as ProfileRow | null
+  const nickname = profileRow?.nickname ?? '사용자'
+  const diaryName = profileRow?.diary_name ?? '기록 들이기'
+  const avatarUrl = profileRow?.avatar_url ?? null
+  const calendarStartDay = ((profileRow?.calendar_start_day ?? 1) as 0 | 1)
+  const calendarEvents = (monthSchedules ?? []).map(schedule => ({
+    day: parseInt(schedule.date.slice(-2), 10),
+    color: schedule.color as string | null,
   }))
 
   return (
-    <>
+    <div className="board-v2-sidebar">
       <aside className="board-v2-left">
         <CalendarStartDayProvider initial={calendarStartDay}>
-        <ProfileCard
-          nickname={nickname}
-          diaryName={diaryName}
-          avatarUrl={avatarUrl}
-          userId={userId}
-          calendarStartDay={calendarStartDay}
-          group={group}
-          members={members}
-        />
-        <CalendarGrid year={year} month={month} today={todayNum} events={calendarEvents} />
+          <ProfileCard
+            nickname={nickname}
+            diaryName={diaryName}
+            avatarUrl={avatarUrl}
+            userId={userId}
+            calendarStartDay={calendarStartDay}
+            group={group}
+            members={members}
+            theme={theme}
+            font={font}
+            basePath={basePath}
+          />
+          <CalendarGrid year={year} month={month} today={todayNum} events={calendarEvents} />
         </CalendarStartDayProvider>
-        <section className="board-v2-mini-card board-v2-top-card">
-          <span className="board-v2-label">오늘</span>
-          <ul className="board-v2-today-list">
-            <li><span>일정</span><strong>{scheduleCount ?? 0}개</strong></li>
-            <li><span>습관</span><strong>{habitCheckCount}개</strong></li>
-            <li><span>지출</span><strong>{todayExpenses?.length ?? 0}건</strong></li>
-          </ul>
-        </section>
+        <TodayMemoToggle
+          scheduleCount={scheduleCount ?? 0}
+          habitCheckCount={habitCheckCount}
+          walletCount={walletRows.length}
+          memos={recentMemos ?? []}
+          todayLabel={`${month}/${todayNum}`}
+          theme={theme}
+          font={font}
+        />
       </aside>
 
       <aside className="board-v2-right">
         <section className="board-v2-sticky board-v2-sticky-white">
-          <span>일정</span>
-          <p>
-            {todaySchedules && todaySchedules.length > 0
-              ? todaySchedules.map(s => s.title).join(' · ')
+          <a className="board-v2-sticky-title" href={boardHref('/schedule', theme, font)}>일정</a>
+          <a className="board-v2-sticky-body" href={boardHref('/schedule', theme, font)}>
+            {scheduleCardItems.items.length > 0
+              ? `${scheduleCardItems.label} ${scheduleCardItems.items.map(schedule => schedule.title).join(' · ')}`
               : '오늘 일정을 추가해보세요'}
-          </p>
+          </a>
         </section>
         <section className="board-v2-sticky board-v2-sticky-blue">
-          <span>습관</span>
-          <p>{habitCheckCount > 0 ? `오늘 ${habitCheckCount}개 완료` : '오늘 습관을 체크해보세요'}</p>
+          <a className="board-v2-sticky-title" href={boardHref('/habit', theme, font)}>습관</a>
+          <a className="board-v2-sticky-body board-v2-sticky-habit-body" href={boardHref('/habit', theme, font)}>
+            {userHabits && userHabits.length > 0
+              ? userHabits.map(habit => (
+                  <span key={habit.id} className="board-v2-sticky-habit-item">{habit.name}</span>
+                ))
+              : '오늘 습관을 체크해보세요'}
+          </a>
         </section>
         <section className="board-v2-sticky board-v2-sticky-cream">
-          <span>지출</span>
-          <p>{expenseTotal > 0 ? `오늘 지출 ${expenseTotal.toLocaleString()}원` : '오늘 지출 없음'}</p>
+          <a className="board-v2-sticky-title" href={boardHref('/expense', theme, font)}>지갑</a>
+          <a className="board-v2-wallet-summary board-v2-sticky-body" href={boardHref('/expense', theme, font)}>
+            <span><em>오늘의 수입</em><strong>+{incomeTotal.toLocaleString()}원</strong></span>
+            <span><em>오늘의 지출</em><strong>-{expenseTotal.toLocaleString()}원</strong></span>
+          </a>
         </section>
       </aside>
-    </>
+    </div>
   )
 }

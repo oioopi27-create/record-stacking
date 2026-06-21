@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { addSchedule } from '@/app/actions/entries'
+import { addSchedule } from '@/app/actions/schedules'
+import TimePicker from '@/components/TimePicker'
 
 type WeekDay = {
   dayName: string
@@ -13,20 +14,20 @@ type WeekDay = {
 }
 
 const COLORS = [
-  '#ffb5c8', '#ffcfa3', '#fff4a3', '#b8f0b8',
-  '#a3d4ff', '#d4a3ff', '#a3ece8', '#d4c4b0',
+  '#ffb5a3', '#ffcba4', '#fff0a3', '#c8e6c0', '#a8e6d9',
+  '#a8d4f5', '#b8b5f0', '#d4b5f0', '#e8dcc8', '#d4d4d4',
 ]
 
 export default function WeekDayStrip({ weekDays }: { weekDays: WeekDay[] }) {
   const [selected, setSelected] = useState<string | null>(null)
-  const [color, setColor]       = useState(COLORS[4])
+  const [color, setColor]       = useState('')
   const [pending, setPending]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const router = useRouter()
 
   const selectedDay = weekDays.find(d => d.dateStr === selected)
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!selected) return
     setPending(true)
@@ -34,15 +35,15 @@ export default function WeekDayStrip({ weekDays }: { weekDays: WeekDay[] }) {
 
     const fd = new FormData(e.currentTarget)
     fd.set('date', selected)
-    fd.set('color', color)
+    if (color) fd.set('color', color)
 
     const result = await addSchedule(fd)
     if (result.error) {
       setError(result.error)
     } else {
       setSelected(null)
+      setColor('')
       setError(null)
-      ;(e.target as HTMLFormElement).reset()
       router.refresh()
     }
     setPending(false)
@@ -76,8 +77,11 @@ export default function WeekDayStrip({ weekDays }: { weekDays: WeekDay[] }) {
           </div>
           <form onSubmit={handleSubmit} className="board-v2-cal-form">
             <input name="title" placeholder="일정 이름" className="board-v2-cal-input" required autoFocus />
-            <input name="time" type="time" className="board-v2-cal-input" />
+            <TimePicker name="time" endName="time_end" />
             <div className="board-v2-color-row board-v2-color-row-sm">
+              <button type="button"
+                className={`board-v2-color-dot board-v2-color-dot-sm board-v2-color-none${color === '' ? ' is-selected' : ''}`}
+                onClick={() => setColor('')} title="색상 없음" />
               {COLORS.map(c => (
                 <button
                   key={c} type="button"
