@@ -161,30 +161,34 @@ export default function AddButton({ type, label, defaultDate }: Props) {
                   <input name="title" placeholder="일정 이름" className="board-v2-modal-input" required autoFocus />
                   <input name="date" type="date" defaultValue={today} className="board-v2-modal-input" required />
                   <TimePicker name="time" endName="time_end" />
-                  <div className="board-v2-cat-row">
-                    <select className="board-v2-modal-input board-v2-cat-select" value={selCategory} onChange={e => setSelCategory(e.target.value)}>
-                      <option value="">카테고리 없음</option>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <button type="button" className="board-v2-cat-add-btn" onClick={() => setAddingCat(v => !v)}>
-                      {addingCat ? '✕' : '+ 추가'}
-                    </button>
-                  </div>
-                  <div className="board-v2-color-row">
-                    <span className="board-v2-color-label">색상</span>
-                    <input
-                      type="color"
-                      className="board-v2-color-input"
-                      value={selCategory ? (categories.find(c => c.id === selCategory)?.color ?? schedColor) : schedColor}
-                      disabled={!!selCategory}
-                      onChange={e => setSchedColor(e.target.value)}
-                      style={{ opacity: selCategory ? 0.4 : 1 }}
-                    />
+                  <div className="board-v2-cat-color-picker">
+                    <div className="board-v2-cat-color-swatches">
+                      <button
+                        type="button"
+                        className={`board-v2-cat-color-item is-none${!selCategory && !addingCat ? ' is-selected' : ''}`}
+                        onClick={() => { setSelCategory(''); setAddingCat(false) }}
+                      >없음</button>
+                      {categories.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`board-v2-cat-color-item${selCategory === c.id ? ' is-selected' : ''}`}
+                          data-color={c.color ?? ''}
+                          style={{ '--cat-dot-color': c.color ?? '' } as React.CSSProperties}
+                          onClick={() => { setSelCategory(c.id); setAddingCat(false) }}
+                        >{c.name}</button>
+                      ))}
+                      <button
+                        type="button"
+                        className={`board-v2-cat-color-item is-add${addingCat ? ' is-selected' : ''}`}
+                        onClick={() => { setAddingCat(v => !v); if (!addingCat) setSelCategory('') }}
+                      >+ 추가</button>
+                    </div>
                   </div>
                   {addingCat && (
-                    <div className="board-v2-cat-new">
+                    <div className="board-v2-cat-new-form">
                       <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="카테고리 이름" className="board-v2-modal-input" />
-                      <div className="board-v2-color-row">
+                      <div className="board-v2-cat-new-color-row">
                         <span className="board-v2-color-label">색상</span>
                         <input
                           type="color"

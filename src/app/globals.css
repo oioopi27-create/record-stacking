@@ -6342,18 +6342,26 @@ input {
 }
 
 .board-v2-date-picker-year-row button {
-  border: none;
-  background: transparent;
-  color: var(--board-accent);
-  font-size: 18px;
+  border: 1.5px solid var(--board-accent) !important;
+  background: transparent !important;
+  color: var(--board-accent) !important;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  padding: 0 6px;
-  border-radius: 4px;
-  transition: opacity 0.12s;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 7px;
+  transition: background 0.12s, color 0.12s;
 }
 
-.board-v2-date-picker-year-row button:hover { opacity: 0.65; }
+.board-v2-date-picker-year-row button:hover {
+  background: var(--board-accent) !important;
+  color: var(--board-on-accent) !important;
+}
 
 .board-v2-date-picker-year-row span {
   font-size: 13px;
@@ -6402,19 +6410,27 @@ input {
 }
 
 .board-v2-week-diary-nav > button {
-  border: none !important;
+  border: 1.5px solid var(--board-accent) !important;
   background: transparent !important;
   color: var(--board-accent) !important;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   cursor: pointer;
-  padding: 0 6px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
   line-height: 1;
-  transition: opacity 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 
-.board-v2-week-diary-nav > button:hover { opacity: 0.65; }
+.board-v2-week-diary-nav > button:hover {
+  background: var(--board-accent) !important;
+  color: var(--board-on-accent) !important;
+}
 
 .board-v2-week-diary-nav-center {
   display: flex;
@@ -6693,10 +6709,10 @@ input {
 /* ── Nav arrow button — MonthCalendar ───────────────────── */
 
 .board-v2-month-cal-arrow {
-  border: none !important;
+  border: 1.5px solid var(--board-accent) !important;
   background: transparent !important;
   color: var(--board-accent) !important;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 700;
   width: 32px;
   height: 32px;
@@ -6705,12 +6721,15 @@ input {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   line-height: 1;
-  transition: opacity 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 
-.board-v2-month-cal-arrow:hover { opacity: 0.6; }
+.board-v2-month-cal-arrow:hover {
+  background: var(--board-accent) !important;
+  color: var(--board-on-accent) !important;
+}
 
 /* WeekDiaryView nav > button — 통합 완료 (위 6404번 줄 규칙 단일 사용) */
 
@@ -6757,8 +6776,26 @@ input {
   flex-shrink: 0;
 }
 
-/* '없음' 버튼은 닷 없음 */
-.board-v2-cat-color-item.is-none::before { display: none; }
+/* '없음', '+ 추가' 버튼은 닷 없음 */
+.board-v2-cat-color-item.is-none::before,
+.board-v2-cat-color-item.is-add::before { display: none; }
+
+/* 새 카테고리 추가 미니 폼 */
+.board-v2-cat-new-form {
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--board-chip);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.board-v2-cat-new-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .board-v2-cat-color-item.is-selected {
   border-color: var(--cat-dot-color, var(--board-accent));

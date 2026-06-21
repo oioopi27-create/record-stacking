@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteSchedule, updateSchedule } from '@/app/actions/entries'
+import { deleteSchedule, updateSchedule, addCategory } from '@/app/actions/entries'
 import { addSchedule } from '@/app/actions/schedules'
 import { createClient } from '@/lib/supabase/client'
 import TimePicker from '@/components/TimePicker'
@@ -36,23 +36,38 @@ type CatPickerProps = {
   categories: Category[]
   catId: string
   onCatChange: (id: string) => void
-  color: string
-  onColorChange: (c: string) => void
+  onCategoryAdded: (cat: Category) => void
 }
 
-function CategoryColorPicker({ categories, catId, onCatChange, color, onColorChange }: CatPickerProps) {
-  const selectedCat = categories.find(c => c.id === catId)
+function CategoryColorPicker({ categories, catId, onCatChange, onCategoryAdded }: CatPickerProps) {
+  const [addingCat, setAddingCat] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatColor, setNewCatColor] = useState('#a8d4f5')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!newCatName.trim()) return
+    setSaving(true)
+    const res = await addCategory(newCatName.trim(), newCatColor)
+    if (!res.error && res.id) {
+      const newCat: Category = { id: res.id, name: newCatName.trim(), color: newCatColor }
+      onCategoryAdded(newCat)
+      onCatChange(res.id)
+      setNewCatName('')
+      setNewCatColor('#a8d4f5')
+      setAddingCat(false)
+    }
+    setSaving(false)
+  }
+
   return (
     <div className="board-v2-cat-color-picker">
       <div className="board-v2-cat-color-swatches">
         <button
           type="button"
-          className={`board-v2-cat-color-item is-none${!catId ? ' is-selected' : ''}`}
-          onClick={() => onCatChange('')}
-          title="카테고리 없음"
-        >
-          없음
-        </button>
+          className={`board-v2-cat-color-item is-none${!catId && !addingCat ? ' is-selected' : ''}`}
+          onClick={() => { onCatChange(''); setAddingCat(false) }}
+        >없음</button>
         {categories.map(cat => (
           <button
             key={cat.id}
@@ -60,26 +75,41 @@ function CategoryColorPicker({ categories, catId, onCatChange, color, onColorCha
             className={`board-v2-cat-color-item${catId === cat.id ? ' is-selected' : ''}`}
             data-color={cat.color}
             style={{ '--cat-dot-color': cat.color } as React.CSSProperties}
-            onClick={() => onCatChange(cat.id)}
-            title={cat.name}
-          >
-            {cat.name}
-          </button>
+            onClick={() => { onCatChange(cat.id); setAddingCat(false) }}
+          >{cat.name}</button>
         ))}
+        <button
+          type="button"
+          className={`board-v2-cat-color-item is-add${addingCat ? ' is-selected' : ''}`}
+          onClick={() => { setAddingCat(v => !v); if (!addingCat) onCatChange('') }}
+        >+ 추가</button>
       </div>
-      <div className="board-v2-cat-color-free">
-        <label className="board-v2-color-label">
-          직접 색상
+      {addingCat && (
+        <div className="board-v2-cat-new-form">
           <input
-            type="color"
-            className="board-v2-color-input"
-            value={selectedCat ? selectedCat.color : color}
-            disabled={!!catId}
-            onChange={e => onColorChange(e.target.value)}
-            style={{ opacity: catId ? 0.35 : 1 }}
+            type="text"
+            value={newCatName}
+            onChange={e => setNewCatName(e.target.value)}
+            placeholder="카테고리 이름"
+            className="board-v2-cal-input"
           />
-        </label>
-      </div>
+          <div className="board-v2-cat-new-color-row">
+            <span className="board-v2-color-label">색상</span>
+            <input
+              type="color"
+              className="board-v2-color-input"
+              value={newCatColor}
+              onChange={e => setNewCatColor(e.target.value)}
+            />
+          </div>
+          <div className="board-v2-cal-actions">
+            <button type="button" className="board-v2-cal-cancel" onClick={() => setAddingCat(false)}>취소</button>
+            <button type="button" className="board-v2-cal-submit" disabled={saving || !newCatName.trim()} onClick={handleSave}>
+              {saving ? '저장 중' : '저장'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -164,6 +194,10 @@ export default function MonthCalendar({
 
   const addCatColor = categories.find(c => c.id === addCatId)?.color ?? null
   const editCatColor = categories.find(c => c.id === editCatId)?.color ?? null
+
+  function handleCategoryAdded(cat: Category) {
+    setCategories(prev => [...prev, cat])
+  }
 
   function startEdit(event: Evt) {
     setEditingId(event.id)
@@ -399,8 +433,7 @@ export default function MonthCalendar({
                         categories={categories}
                         catId={editCatId}
                         onCatChange={setEditCatId}
-                        color={editColor}
-                        onColorChange={setEditColor}
+                        onCategoryAdded={handleCategoryAdded}
                       />
                       {editError && <p className="board-v2-cal-error">{editError}</p>}
                       <div className="board-v2-cal-actions">
@@ -443,8 +476,7 @@ export default function MonthCalendar({
               categories={categories}
               catId={addCatId}
               onCatChange={setAddCatId}
-              color={addColor}
-              onColorChange={setAddColor}
+              onCategoryAdded={handleCategoryAdded}
             />
             {addError && <p className="board-v2-cal-error">{addError}</p>}
             <div className="board-v2-cal-actions">
