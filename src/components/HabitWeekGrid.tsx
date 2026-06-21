@@ -112,7 +112,12 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
   const selectedHabit = selectedId ? habits.find(h => h.id === selectedId) ?? null : null
 
   if (habits.length === 0) {
-    return <p className="board-v2-coming-soon">+ 첫 번째 습관을 추가해 보세요</p>
+    return (
+      <>
+        <div className="board-v2-habit-section-title">★ 습관</div>
+        <p className="board-v2-coming-soon">+ 첫 번째 습관을 추가해 보세요</p>
+      </>
+    )
   }
 
   return (

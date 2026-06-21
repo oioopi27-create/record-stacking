@@ -3,10 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import BoardShell, { boardHref, resolveFont, resolveTheme } from '@/components/BoardShell'
 import HeaderBar from '@/components/HeaderBar'
 import BottomNav from '@/components/BottomNav'
-import AddButton from '@/components/AddButton'
 import HabitMonthView from '@/components/HabitMonthView'
 import HabitWeekGrid from '@/components/HabitWeekGrid'
 import HabitDateNav from '@/components/HabitDateNav'
+import HabitMonthNav from '@/components/HabitMonthNav'
+import HabitRecordButton from '@/components/HabitRecordButton'
 import MoodChart from '@/components/MoodChart'
 import TodayFocusList from '@/components/TodayFocusList'
 import type { MoodLevel } from '@/app/actions/entries'
@@ -99,7 +100,7 @@ export default async function HabitPage({
         <div className="board-v2-window-body">
           <div className="board-v2-window-heading-row">
             <a href={habitViewHref('month')} className="board-v2-tab-heading">습관</a>
-            <AddButton type="습관" label="습관 생성" />
+            <HabitRecordButton todayKey={todayKey} />
           </div>
 
           <div className="board-v2-habit-view-toggle">
@@ -107,11 +108,13 @@ export default async function HabitPage({
             <a href={habitViewHref('month')} className="board-v2-habit-view-btn is-active">이번 달</a>
           </div>
 
-          <nav className="board-v2-week-arrow-nav" aria-label="습관 월 이동">
-            <a href={habitMonthHref(-1)} aria-label="지난 달">‹</a>
-            <span>{year}.{pad(month)}</span>
-            <a href={habitMonthHref(1)} aria-label="다음 달">›</a>
-          </nav>
+          <HabitMonthNav
+            year={year}
+            month={month}
+            prevHref={habitMonthHref(-1)}
+            nextHref={habitMonthHref(1)}
+            basePath={boardHref('/habit', theme, font)}
+          />
 
           <HabitMonthView
             key={`${year}-${month}`}
@@ -192,8 +195,7 @@ export default async function HabitPage({
       <div className="board-v2-window-body">
         <div className="board-v2-window-heading-row">
           <a href={habitViewHref('week')} className="board-v2-tab-heading">습관</a>
-          <AddButton type="습관" label="습관 생성" />
-          <AddButton type="집중" label="집중 추가" defaultDate={todayKey} />
+          <HabitRecordButton todayKey={todayKey} />
         </div>
 
         <div className="board-v2-habit-view-toggle">

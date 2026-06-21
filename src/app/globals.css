@@ -2101,6 +2101,48 @@ input {
 
 .board-v2-profile-logout-btn:hover { background: rgba(200, 80, 80, 0.08); }
 
+.board-v2-reset-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px;
+  margin-top: 10px;
+  border: 0.5px solid rgba(200, 80, 80, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 80, 0.06), transparent 58%),
+    color-mix(in srgb, var(--board-card) 92%, #fff);
+}
+
+.board-v2-reset-box strong {
+  font-size: 13px;
+  color: var(--board-text);
+}
+
+.board-v2-reset-box p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--board-muted);
+}
+
+.board-v2-reset-warning {
+  color: #c85050 !important;
+}
+
+.board-v2-reset-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.board-v2-reset-btn {
+  flex: 1;
+  margin-top: 0;
+  background: rgba(200, 80, 80, 0.07);
+}
+
 .board-v2-startday-toggle {
   width: 100%;
   border-radius: 10px;
@@ -2294,6 +2336,61 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 기록 버튼 모달 — 선택 화면 */
+.board-v2-modal-back-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--board-chip);
+  color: var(--board-subtext);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+}
+
+.board-v2-record-select {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+.board-v2-record-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--board-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--board-accent) 6%, var(--board-card));
+  color: var(--board-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+  font-family: var(--font-display), sans-serif;
+}
+
+.board-v2-record-choice:hover {
+  background: color-mix(in srgb, var(--board-accent) 14%, var(--board-card));
+  border-color: var(--board-accent);
+}
+
+.board-v2-record-choice-icon {
+  font-size: 20px;
+  color: var(--board-accent);
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .board-v2-modal-form { display: flex; flex-direction: column; gap: 10px; }
@@ -3481,10 +3578,11 @@ input {
 }
 
 .board-v2-month-cal-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin: -6px 0 16px;
 }
 
 /* 구버전 board-v2-month-cal-header button 범용 규칙 — 삭제됨 (arrow/year-btn 클래스 규칙으로 통합) */
@@ -6120,36 +6218,31 @@ input {
 /* ── Schedule View Toggle (이번 주 / 이번 달) ─────────── */
 
 .board-v2-sched-view-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1.5px solid color-mix(in srgb, var(--board-accent) 40%, rgba(72, 80, 78, 0.18));
-  border-radius: 10px;
-  overflow: hidden;
+  display: flex;
+  gap: 4px;
   margin-bottom: 14px;
 }
 
 .board-v2-sched-view-btn {
-  padding: 8px 0;
-  text-align: center;
-  font-size: 12px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--board-subtext);
-  background: var(--board-card-soft);
   text-decoration: none;
-  transition: background 0.12s, color 0.12s;
-}
-
-.board-v2-sched-view-btn + .board-v2-sched-view-btn {
-  border-left: 1.5px solid color-mix(in srgb, var(--board-accent) 30%, rgba(72, 80, 78, 0.12));
+  color: var(--board-muted);
+  background: var(--board-chip);
+  transition: all 0.12s;
 }
 
 .board-v2-sched-view-btn:hover {
-  background: color-mix(in srgb, var(--board-accent) 14%, var(--board-card));
+  color: var(--board-text);
+  background: color-mix(in srgb, var(--board-accent) 12%, var(--board-chip));
 }
 
 .board-v2-sched-view-btn.is-active {
-  background: color-mix(in srgb, var(--board-accent) 22%, var(--board-card));
-  color: var(--board-text);
+  color: var(--board-accent);
+  background: color-mix(in srgb, var(--board-accent) 12%, transparent);
+  outline: 0.5px solid color-mix(in srgb, var(--board-accent) 35%, transparent);
 }
 
 /* ── MonthCalendar — Year Picker ──────────────────────── */
@@ -6806,27 +6899,28 @@ input {
 /* ── Nav arrow button — MonthCalendar ───────────────────── */
 
 .board-v2-month-cal-arrow {
-  border: 1.5px solid var(--board-accent) !important;
-  background: transparent !important;
-  color: var(--board-accent) !important;
-  font-size: 16px;
-  font-weight: 900;
-  width: 32px;
-  height: 32px;
+  border: 1.5px solid color-mix(in srgb, var(--board-accent) 60%, rgba(72, 80, 78, 0.25)) !important;
+  background: color-mix(in srgb, var(--board-accent) 18%, var(--board-card)) !important;
+  color: var(--board-subtext) !important;
+  font-size: 20px;
+  font-weight: 700;
+  width: 34px;
+  height: 34px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   line-height: 1;
   font-family: monospace;
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
 .board-v2-month-cal-arrow:hover {
   background: var(--board-accent) !important;
   color: var(--board-on-accent) !important;
+  transform: translateY(-1px);
 }
 
 /* WeekDiaryView nav > button — 통합 완료 (위 6404번 줄 규칙 단일 사용) */
@@ -6918,4 +7012,3 @@ input {
   color: var(--board-subtext);
   font-family: var(--font-display), sans-serif;
 }
-
