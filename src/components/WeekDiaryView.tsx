@@ -135,7 +135,7 @@ export default function WeekDiaryView({ initialSchedules, initialWeekStart, curr
   return (
     <div className="board-v2-week-diary">
       <div className="board-v2-week-diary-nav">
-        <button type="button" onClick={prevWeek} aria-label="지난 주">&#8249;</button>
+        <button type="button" onClick={prevWeek} aria-label="지난 주">&lt;</button>
         <div className="board-v2-week-diary-nav-center">
           <span className="board-v2-week-diary-label">{weekLabel(monday)}</span>
           <button
@@ -158,7 +158,7 @@ export default function WeekDiaryView({ initialSchedules, initialWeekStart, curr
             />
           )}
         </div>
-        <button type="button" onClick={nextWeek} aria-label="다음 주">&#8250;</button>
+        <button type="button" onClick={nextWeek} aria-label="다음 주">&gt;</button>
       </div>
 
       <div className="board-v2-week-diary-list">

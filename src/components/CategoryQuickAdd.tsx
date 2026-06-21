@@ -62,6 +62,18 @@ export default function CategoryQuickAdd() {
             aria-label={c}
           />
         ))}
+        <label
+          className={`board-v2-cat-color-swatch board-v2-cat-color-swatch-custom${!PRESET_COLORS.includes(color) ? ' is-selected' : ''}`}
+          style={{ background: !PRESET_COLORS.includes(color) ? color : 'transparent' }}
+          title="직접 색상 선택"
+        >
+          <input
+            type="color"
+            className="board-v2-cat-color-picker-input"
+            value={color}
+            onChange={e => setColor(e.target.value)}
+          />
+        </label>
       </div>
       <div className="board-v2-cat-quick-add-actions">
         <button

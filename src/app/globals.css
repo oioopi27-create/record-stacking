@@ -3476,7 +3476,7 @@ input {
   min-height: 66px;
   border: 0;
   border-radius: 8px;
-  background: var(--board-card-soft);
+  background: transparent;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -6413,8 +6413,9 @@ input {
   border: 1.5px solid var(--board-accent) !important;
   background: transparent !important;
   color: var(--board-accent) !important;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: monospace;
   cursor: pointer;
   width: 32px;
   height: 32px;
@@ -6609,6 +6610,39 @@ input {
   transform: scale(1.2);
 }
 
+/* 직접 색상 선택 스와치 */
+.board-v2-cat-color-swatch-custom {
+  cursor: pointer;
+  border: 1.5px dashed rgba(72, 80, 78, 0.4);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-v2-cat-color-swatch-custom::after {
+  content: '+';
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(72, 80, 78, 0.5);
+  position: absolute;
+  pointer-events: none;
+}
+
+.board-v2-cat-color-swatch-custom.is-selected::after { display: none; }
+
+.board-v2-cat-color-picker-input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
 .board-v2-cat-quick-add-actions {
   display: flex;
   justify-content: flex-end;
@@ -6712,8 +6746,8 @@ input {
   border: 1.5px solid var(--board-accent) !important;
   background: transparent !important;
   color: var(--board-accent) !important;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 900;
   width: 32px;
   height: 32px;
   cursor: pointer;
@@ -6723,6 +6757,7 @@ input {
   padding: 0;
   border-radius: 8px;
   line-height: 1;
+  font-family: monospace;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -6782,19 +6817,20 @@ input {
 
 /* 새 카테고리 추가 미니 폼 */
 .board-v2-cat-new-form {
-  margin-top: 8px;
-  padding: 10px;
+  margin-top: 10px;
+  padding: 12px;
   background: var(--board-chip);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .board-v2-cat-new-color-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 2px 0;
 }
 
 .board-v2-cat-color-item.is-selected {

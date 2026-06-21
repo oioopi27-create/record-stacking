@@ -305,7 +305,7 @@ export default function MonthCalendar({
   return (
     <div className="board-v2-month-cal">
       <div className="board-v2-month-cal-header">
-        <button type="button" className="board-v2-month-cal-arrow" onClick={prevMonth} aria-label="이전 달">&#8249;</button>
+        <button type="button" className="board-v2-month-cal-arrow" onClick={prevMonth} aria-label="이전 달">&lt;</button>
         <div className="board-v2-month-cal-title-group">
           <span className="board-v2-month-cal-title">{year}년 {month}월</span>
           <button
@@ -318,15 +318,15 @@ export default function MonthCalendar({
             ▾
           </button>
         </div>
-        <button type="button" className="board-v2-month-cal-arrow" onClick={nextMonth} aria-label="다음 달">&#8250;</button>
+        <button type="button" className="board-v2-month-cal-arrow" onClick={nextMonth} aria-label="다음 달">&gt;</button>
       </div>
 
       {datePickerOpen && (
         <div className="board-v2-date-picker">
           <div className="board-v2-date-picker-year-row">
-            <button type="button" onClick={() => setPickerYear(y => y - 1)}>‹</button>
+            <button type="button" onClick={() => setPickerYear(y => y - 1)}>&lt;</button>
             <span>{pickerYear}년</span>
-            <button type="button" onClick={() => setPickerYear(y => y + 1)}>›</button>
+            <button type="button" onClick={() => setPickerYear(y => y + 1)}>&gt;</button>
           </div>
           <div className="board-v2-date-picker-months">
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
