@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import AddButton from '@/components/AddButton'
 import HabitMonthView from '@/components/HabitMonthView'
 import HabitWeekGrid from '@/components/HabitWeekGrid'
+import HabitDateNav from '@/components/HabitDateNav'
 import MoodChart from '@/components/MoodChart'
 import TodayFocusList from '@/components/TodayFocusList'
 import type { MoodLevel } from '@/app/actions/entries'
@@ -192,17 +193,20 @@ export default async function HabitPage({
         <div className="board-v2-window-heading-row">
           <a href={habitViewHref('week')} className="board-v2-tab-heading">습관</a>
           <AddButton type="습관" label="습관 생성" />
+          <AddButton type="집중" label="집중 추가" defaultDate={todayKey} />
         </div>
 
         <div className="board-v2-habit-view-toggle">
           <a href={habitViewHref('week')} className="board-v2-habit-view-btn is-active">이번 주</a>
           <a href={habitViewHref('month')} className="board-v2-habit-view-btn">이번 달</a>
         </div>
-        <nav className="board-v2-week-arrow-nav" aria-label="습관 주 이동">
-          <a href={habitWeekHref(navDate(-7))} aria-label="지난 주">‹</a>
-          <span>{weekLabel}</span>
-          <a href={habitWeekHref(navDate(7))} aria-label="다음 주">›</a>
-        </nav>
+        <HabitDateNav
+          weekLabel={weekLabel}
+          weekStart={weekStartStr}
+          prevHref={habitWeekHref(navDate(-7))}
+          nextHref={habitWeekHref(navDate(7))}
+          basePath={boardHref('/habit', theme, font)}
+        />
         <HabitWeekGrid
           habits={habits ?? []}
           checks={(checksResult.data ?? []) as { habit_id: string; date: string; is_checked: boolean }[]}

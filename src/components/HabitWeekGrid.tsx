@@ -22,6 +22,7 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
   const [optimisticChecks, setOptimisticChecks] = useState<Map<string, boolean>>(() => new Map())
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set())
   const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({})
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editPending, setEditPending] = useState(false)
@@ -66,14 +67,23 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
         next.delete(key)
         return next
       })
-      return
+    } else {
+      router.refresh()
     }
-    router.refresh()
+  }
+
+  function openPopup(habit: Habit) {
+    setSelectedId(habit.id)
+  }
+
+  function closePopup() {
+    setSelectedId(null)
   }
 
   function startEdit(habit: Habit) {
     setEditingId(habit.id)
     setEditName(habit.name)
+    setSelectedId(null)
   }
 
   function cancelEdit() {
@@ -93,97 +103,89 @@ export default function HabitWeekGrid({ habits: initialHabits, checks, weekDays 
   }
 
   async function handleDelete(habitId: string) {
-    if (!confirm('이 습관을 삭제할까요?')) return
     setDeletedIds(prev => new Set(prev).add(habitId))
-    setEditingId(null)
+    setSelectedId(null)
     const result = await deleteHabit(habitId)
     if (!result.error) router.refresh()
   }
+
+  const selectedHabit = selectedId ? habits.find(h => h.id === selectedId) ?? null : null
 
   if (habits.length === 0) {
     return <p className="board-v2-coming-soon">+ 첫 번째 습관을 추가해 보세요</p>
   }
 
   return (
-    <div className="board-v2-habit-grid">
-      <div className="board-v2-habit-grid-head">
-        <div className="board-v2-habit-grid-label">습관</div>
-        {weekDays.map(day => (
-          <div key={day.dateStr} className={`board-v2-habit-grid-day${day.isToday ? ' is-today' : ''}`}>
-            {day.dayName}
+    <>
+      <div className="board-v2-habit-section-title">★ 습관</div>
+      <div className="board-v2-habit-grid">
+        <div className="board-v2-habit-grid-head">
+          <div className="board-v2-habit-grid-label" />
+          {weekDays.map(day => (
+            <div key={day.dateStr} className={`board-v2-habit-grid-day${day.isToday ? ' is-today' : ''}`}>
+              {day.dayName}
+            </div>
+          ))}
+        </div>
+        {habits.map(habit => (
+          <div key={habit.id} className="board-v2-habit-grid-row">
+            {editingId === habit.id ? (
+              <div className="board-v2-habit-grid-name is-editing">
+                <input
+                  ref={inputRef}
+                  className="board-v2-habit-name-input"
+                  value={editName}
+                  onChange={event => setEditName(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') handleRename(habit.id)
+                    if (event.key === 'Escape') cancelEdit()
+                  }}
+                  disabled={editPending}
+                  maxLength={30}
+                />
+                <button type="button" className="board-v2-habit-inline-btn save" onClick={() => handleRename(habit.id)} disabled={editPending}>저장</button>
+                <button type="button" className="board-v2-habit-inline-btn cancel" onClick={cancelEdit} disabled={editPending}>취소</button>
+              </div>
+            ) : (
+              <div className="board-v2-habit-grid-name">
+                <button
+                  type="button"
+                  className="board-v2-habit-name-text"
+                  onClick={() => openPopup(habit)}
+                >
+                  {habit.name}
+                </button>
+              </div>
+            )}
+            {weekDays.map(day => {
+              const checked = isChecked(habit.id, day.dateStr)
+              return (
+                <button
+                  key={day.dateStr}
+                  type="button"
+                  className={`board-v2-habit-grid-cell${checked ? ' is-checked' : ''}${day.isToday ? ' is-today' : ''}`}
+                  onClick={() => handleToggle(habit.id, day.dateStr)}
+                  aria-label={`${habit.name} ${day.dayName} ${checked ? '완료' : '미완료'}`}
+                >
+                  <span className="board-v2-habit-dot" />
+                </button>
+              )
+            })}
           </div>
         ))}
       </div>
-      {habits.map(habit => (
-        <div key={habit.id} className="board-v2-habit-grid-row">
-          {editingId === habit.id ? (
-            <div className="board-v2-habit-grid-name is-editing">
-              <input
-                ref={inputRef}
-                className="board-v2-habit-name-input"
-                value={editName}
-                onChange={event => setEditName(event.target.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter') handleRename(habit.id)
-                  if (event.key === 'Escape') cancelEdit()
-                }}
-                disabled={editPending}
-                maxLength={30}
-              />
-              <button
-                type="button"
-                className="board-v2-habit-inline-btn save"
-                onClick={() => handleRename(habit.id)}
-                disabled={editPending}
-              >
-                저장
-              </button>
-              <button
-                type="button"
-                className="board-v2-habit-inline-btn del"
-                onClick={() => handleDelete(habit.id)}
-                disabled={editPending}
-              >
-                삭제
-              </button>
-              <button
-                type="button"
-                className="board-v2-habit-inline-btn cancel"
-                onClick={cancelEdit}
-                disabled={editPending}
-              >
-                취소
-              </button>
+
+      {selectedHabit && (
+        <div className="board-v2-habit-popup-overlay" onClick={closePopup}>
+          <div className="board-v2-habit-popup" onClick={e => e.stopPropagation()}>
+            <div className="board-v2-habit-popup-name">{selectedHabit.name}</div>
+            <div className="board-v2-habit-popup-actions">
+              <button type="button" className="board-v2-habit-popup-btn is-edit" onClick={() => startEdit(selectedHabit)}>수정</button>
+              <button type="button" className="board-v2-habit-popup-btn is-del" onClick={() => handleDelete(selectedHabit.id)}>삭제</button>
             </div>
-          ) : (
-            <div className="board-v2-habit-grid-name">
-              <span className="board-v2-habit-name-text" title={habit.name}>{habit.name}</span>
-              <button
-                type="button"
-                className="board-v2-habit-edit-btn"
-                onClick={() => startEdit(habit)}
-                aria-label={`${habit.name} 수정`}
-              >
-                ...
-              </button>
-            </div>
-          )}
-          {weekDays.map(day => {
-            const checked = isChecked(habit.id, day.dateStr)
-            return (
-              <button
-                key={day.dateStr}
-                type="button"
-                className={`board-v2-habit-grid-cell${checked ? ' is-checked' : ''}${day.isToday ? ' is-today' : ''}`}
-                onClick={() => handleToggle(habit.id, day.dateStr)}
-                aria-label={`${habit.name} ${day.dayName} ${checked ? '완료' : '미완료'}`}
-              >
-                <span className="board-v2-habit-dot" />
-              </button>
-            )
-          })}
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   )
 }

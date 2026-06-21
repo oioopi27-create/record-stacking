@@ -1269,8 +1269,8 @@ input {
 
 .board-v2-tab-heading:hover { opacity: 0.75; }
 
-.board-v2-window-heading-row .board-v2-add-btn-wrap,
-.board-v2-window-heading-row > [class*="board-v2-add"] {
+.board-v2-window-heading-row .board-v2-add-btn-wrap:first-of-type,
+.board-v2-window-heading-row > [class*="board-v2-add"]:first-of-type {
   margin-left: auto;
 }
 
@@ -2510,21 +2510,20 @@ input {
   padding: 0 6px;
 }
 
-.board-v2-habit-grid-label {
-  padding: 12px 12px 10px;
+/* ★ 습관 섹션 제목 (표 위) */
+.board-v2-habit-section-title {
   font-size: 13px;
   font-weight: 800;
   color: var(--board-text);
-  letter-spacing: 0;
+  padding: 10px 12px 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.board-v2-habit-grid-label::before {
-  content: "★";
-  color: var(--board-accent);
-  font-size: 12px;
+/* 그리드 레이블 셀 — 레이아웃 자리 유지, 내용 없음 */
+.board-v2-habit-grid-label {
+  padding: 0;
 }
 
 .board-v2-habit-grid-day {
@@ -2561,29 +2560,14 @@ input {
   min-width: 0;
   font-size: 13px;
   color: var(--board-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.board-v2-habit-edit-btn {
-  flex-shrink: 0;
-  border: 0;
+  text-align: left;
+  border: none;
   background: transparent;
-  color: var(--board-muted);
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  padding: 2px 4px;
-  border-radius: 4px;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.12s;
-  line-height: 1;
+  padding: 0;
+  word-break: break-word;
+  line-height: 1.4;
 }
-
-.board-v2-habit-grid-row:hover .board-v2-habit-edit-btn { opacity: 1; }
-.board-v2-habit-edit-btn:hover { background: color-mix(in srgb, var(--board-muted) 15%, transparent); }
 
 /* 인라인 편집 상태 */
 .board-v2-habit-grid-name.is-editing {
@@ -2632,6 +2616,73 @@ input {
 .board-v2-habit-inline-btn.cancel {
   background: color-mix(in srgb, var(--board-muted) 14%, transparent);
   color: var(--board-subtext);
+}
+
+/* 습관 이름 클릭 → 팝업 모달 */
+.board-v2-habit-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.board-v2-habit-popup {
+  background: var(--board-card);
+  border-radius: 14px;
+  padding: 20px 24px;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.board-v2-habit-popup-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--board-text);
+  text-align: center;
+  word-break: break-word;
+}
+
+.board-v2-habit-popup-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.board-v2-habit-popup-btn {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-display), sans-serif;
+}
+
+.board-v2-habit-popup-btn.is-edit {
+  background: var(--board-accent);
+  color: var(--board-on-accent);
+}
+
+.board-v2-habit-popup-btn.is-del {
+  background: rgba(200, 60, 60, 0.12);
+  color: #c83c3c;
+}
+
+/* week-arrow-nav 중앙 영역 (span + ▾ 버튼) */
+.board-v2-week-arrow-nav-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  position: relative;
 }
 
 /* 원형 도트 */

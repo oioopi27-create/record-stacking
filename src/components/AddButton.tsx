@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { addHabit, addExpense, addMemo, addCategory, addPaymentMethod } from '@/app/actions/entries'
 import { addSchedule } from '@/app/actions/schedules'
+import { addFocusItem } from '@/app/actions/focus'
 import { createClient } from '@/lib/supabase/client'
 import TimePicker from '@/components/TimePicker'
 
-type FormType = '일정' | '습관' | '지출' | '메모'
+type FormType = '일정' | '습관' | '지출' | '메모' | '집중'
 type Category = { id: string; name: string; color?: string | null }
 type PaymentMethod = { id: string; name: string; type: 'card' | 'account' | 'cash' | 'investment' }
 type WalletType = PaymentMethod['type']
@@ -83,10 +84,12 @@ export default function AddButton({ type, label, defaultDate }: Props) {
       if (selExpenseCategory) fd.set('category_id', selExpenseCategory)
       if (selPaymentMethod) fd.set('payment_method_id', selPaymentMethod)
     }
+    if (type === '집중') fd.set('date', today)
     let result
     if      (type === '일정') result = await addSchedule(fd)
     else if (type === '습관') result = await addHabit(fd)
     else if (type === '지출') result = await addExpense(fd)
+    else if (type === '집중') result = await addFocusItem(fd)
     else                       result = await addMemo(fd)
 
     if (result.error) {
@@ -260,6 +263,9 @@ export default function AddButton({ type, label, defaultDate }: Props) {
                     </div>
                   )}
                 </>
+              )}
+              {type === '집중' && (
+                <input name="text" placeholder="오늘 집중할 일을 적어 주세요" className="board-v2-modal-input" required autoFocus />
               )}
               {type === '메모' && (
                 <>
