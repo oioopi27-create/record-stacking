@@ -6239,14 +6239,13 @@ input {
 .board-v2-week-diary-empty {
   font-size: 11px;
   color: var(--board-muted);
-  font-style: italic;
 }
 
 .board-v2-week-diary-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  border-radius: 999px;
+  border-radius: 4px;
   font-size: 11px;
   padding: 3px 8px;
   color: var(--board-text);
@@ -6593,6 +6592,17 @@ input {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.board-v2-cat-quick-add-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.board-v2-cat-quick-add-color-label {
+  font-size: 12px;
+  color: var(--board-subtext);
 }
 
 .board-v2-cat-color-swatch {
